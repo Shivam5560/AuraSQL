@@ -9,12 +9,21 @@ from scratch.utils.clean_format import clean_json
 from scratch.utils.system_prompt import system_prompt  # Import the system prompt
 from scratch.models.recommendations import recommendations  # Import the prompt for recommendations
 # Add the root directory to sys.path
+from fastapi.middleware.cors import CORSMiddleware
 import json
 
 global_db_type = []
 global_table_name = []  
 
 app = FastAPI()
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://172.20.10.3:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 @app.get("/")
 async def root():
     return {"message": "Text-to-SQL Server is running! 🚀"}
