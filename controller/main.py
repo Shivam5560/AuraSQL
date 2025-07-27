@@ -16,10 +16,10 @@ from fastapi.middleware.cors import CORSMiddleware
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 # Your application's modules
-from scratch.rag.QueryEngine import insert_schema, generate_query_engine
-from scratch.db.extract_schema import ExtractSchema
-from scratch.utils.system_prompt import system_prompt
-from scratch.models.recommendations import recommendations
+from rag.QueryEngine import insert_schema, generate_query_engine
+from db.extract_schema import ExtractSchema
+from utils.system_prompt import system_prompt
+from models.recommendations import recommendations
 
 # Imports for client initialization
 from dotenv import load_dotenv

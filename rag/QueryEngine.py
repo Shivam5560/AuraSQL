@@ -12,7 +12,7 @@ from llama_index.core import (
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.vector_stores.pinecone import PineconeVectorStore
-from scratch.utils.clean_format import clean_json
+from utils.clean_format import clean_json
 import logging
 import traceback
 

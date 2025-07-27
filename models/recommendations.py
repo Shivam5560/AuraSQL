@@ -1,6 +1,6 @@
 import json
-from scratch.rag.QueryEngine import generate_query_engine
-from scratch.utils.prompt_recommendations import prompt
+from rag.QueryEngine import generate_query_engine
+from utils.prompt_recommendations import prompt
 import logging
 import asyncio # Import asyncio
 
