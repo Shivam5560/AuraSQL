@@ -103,6 +103,30 @@ async def recommendations_api(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating recommendations: {str(e)}")
 
+@app.post("/query_sql")
+async def execute_sql(request: Request):  # Use FastAPI's Request object
+    """Extract database schema information"""
+    try:
+        config = await request.json()
+        query = config.get("query")  # Parse JSON body from the request
+        schema_extractor = ExtractSchema(
+            db_type=config['db_type'],
+            ip=config.get('ip'),
+            port=config.get('port'),
+            username=config.get('username'),
+            password=config.get('password'),
+            database=config.get('database'),
+            schema_name=config.get('schema_name'),  # Use schema_name from the request
+            table_name=config['table_name'], 
+        )
+        query_response_df = schema_extractor.execute_query(query)
+        
+        return {
+            "success": True,
+            "data": query_response_df.to_dict(orient='records'),  # Convert DataFrame to a list of dictionaries
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Schema extraction failed: {str(e)}")
 
 # STart the FastAPI application
 if __name__ == "__main__":

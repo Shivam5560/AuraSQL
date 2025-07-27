@@ -41,7 +41,22 @@ class ExtractSchema:
             )
         else:
             raise ValueError(f"Unsupported database type: {self.db_type}")
-
+    
+    def execute_query(self, query):
+        try:
+            print(f"Executing query on {self.db_type} database...")
+            connection = self.connect_to_database()
+            cursor = connection.cursor()
+            cursor.execute(query)
+            results = cursor.fetchall()
+            columns = [desc[0] for desc in cursor.description]
+            df = pd.DataFrame(results, columns=columns)
+            cursor.close()
+            connection.close()
+            return df
+        except Exception as e:
+            raise Exception(f"Failed to execute query: {str(e)}")
+    
     def extract_schema_details(self):
         try:
             connection = self.connect_to_database()
