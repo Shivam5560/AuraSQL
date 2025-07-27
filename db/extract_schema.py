@@ -16,6 +16,7 @@ class ExtractSchema:
         self.table_name = table_name
 
     def connect_to_database(self):
+        self.db_type = self.db_type.lower()
         if self.db_type == "postgresql":
             return psycopg2.connect(
                 host=self.ip,
