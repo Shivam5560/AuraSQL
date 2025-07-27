@@ -1,27 +1,24 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { Session, useSupabaseClient } from '@supabase/auth-helpers-react'
+import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { DbConnectionForm } from "@/components/db-connection-form"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { useTheme } from "next-themes"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Loader2 } from "lucide-react"
 import { extractSchema, insertSchema, getRecommendations, generateQuery, executeQuery } from "@/lib/api"
 
 // --- Interfaces for your data structures ---
-interface DbConfig {
-  db_type: string
-  ip: string
-  port: number
-  username: string
-  password?: string
-  database: string
-  schema_name: string
-  table_name: string
-}
+import { DbConfig } from '@/lib/types'
 
 interface SchemaColumn {
   table_name: string
@@ -45,8 +42,38 @@ type QueryMode = "recommendations" | "manual"
 
 // --- Main Page Component ---
 export default function Home() {
-  const [step, setStep] = useState<Step>("connect")
+  const router = useRouter()
+  const supabase = useSupabaseClient()
+  const [session, setSession] = useState<Session | null>(null)
+  const [loadingSession, setLoadingSession] = useState(true)
   const [dbConfig, setDbConfig] = useState<DbConfig | null>(null)
+  const [step, setStep] = useState<Step>("connect")
+
+  const [passwordInput, setPasswordInput] = useState('')
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false)
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedConfig = localStorage.getItem('currentDbConfig')
+      if (savedConfig) {
+        const parsedConfig = JSON.parse(savedConfig)
+        if (parsedConfig.db_type && parsedConfig.ip && parsedConfig.port && parsedConfig.username && parsedConfig.database && parsedConfig.schema_name && parsedConfig.table_name) {
+          setDbConfig(parsedConfig)
+          if (!parsedConfig.password) {
+            setShowPasswordPrompt(true)
+            setStep("connect") // Stay on connect step to show password prompt
+          } else {
+            setStep("schema") // Proceed to schema if password is present
+          }
+        } else {
+          localStorage.removeItem('currentDbConfig') // Clear incomplete config
+          setStep("connect")
+        }
+      } else {
+        setStep("connect")
+      }
+    }
+  }, [])
   const [extractedSchema, setExtractedSchema] = useState<ExtractedSchema | null>(null)
   const [schemaLoading, setSchemaLoading] = useState(false)
   const [schemaError, setSchemaError] = useState<string | null>(null)
@@ -64,6 +91,33 @@ export default function Home() {
   const [resultsLoading, setResultsLoading] = useState(false)
   const [resultsError, setResultsError] = useState<string | null>(null)
   const [queryResults, setQueryResults] = useState<Record<string, any>[]>([])
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+      setLoadingSession(false)
+    }
+    getSession()
+  }, [supabase])
+
+  useEffect(() => {
+    if (!loadingSession && !session) {
+      router.push('/login')
+    }
+  }, [session, loadingSession, router])
+
+  const { setTheme, theme } = useTheme()
+
+    const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!dbConfig) return
+
+    const configWithPassword = { ...dbConfig, password: passwordInput }
+    setDbConfig(configWithPassword)
+    setShowPasswordPrompt(false)
+    await handleExtractSchema(configWithPassword)
+  }
 
   // Step 1: Connect (extract-schema)
   const handleExtractSchema = async (config: DbConfig) => {
@@ -112,26 +166,22 @@ export default function Home() {
     }
   }
 
-  // Step 3: Recommendations
-  useEffect(() => {
-    const handleLoadRecommendations = async () => {
-      if (step !== 'query' || !dbConfig) return
-      setRecommendationsLoading(true)
-      setRecommendationsError(null)
-      try {
-        const result = await getRecommendations(dbConfig.db_type, dbConfig.table_name, dbConfig.schema_name)
-        if (result.success && result.recommendations) {
-          setRecommendations(result.recommendations)
-        } else {
-          setRecommendationsError(result.detail || "Failed to fetch recommendations.")
-        }
-      } catch (err: any) {
-        setRecommendationsError(`Error fetching recommendations: ${err.message}`)
-      } finally {
-        setRecommendationsLoading(false)
+  const handleLoadRecommendations = useCallback(async () => {
+    if (step !== 'query' || !dbConfig) return
+    setRecommendationsLoading(true)
+    setRecommendationsError(null)
+    try {
+      const result = await getRecommendations(dbConfig.db_type, dbConfig.table_name, dbConfig.schema_name)
+      if (result.success && result.recommendations) {
+        setRecommendations(result.recommendations)
+      } else {
+        setRecommendationsError(result.detail || "Failed to fetch recommendations.")
       }
+    } catch (err: any) {
+      setRecommendationsError(`Error fetching recommendations: ${err.message}`)
+    } finally {
+      setRecommendationsLoading(false)
     }
-    handleLoadRecommendations()
   }, [step, dbConfig])
 
 
@@ -152,6 +202,20 @@ export default function Home() {
       if (result.success && result.sql) {
         setGeneratedSQL(result.sql)
         setStep("sql")
+        // Save query to history
+        if (session?.user?.id) {
+          const { error: historyError } = await supabase
+            .from('query_history')
+            .insert({
+              user_id: session.user.id,
+              natural_language_query: query,
+              generated_sql: result.sql,
+              status: 'generated',
+            })
+          if (historyError) {
+            console.error('Error saving query history:', historyError)
+          }
+        }
       } else {
         setSqlError(result.detail || "Failed to generate SQL query.")
       }
@@ -173,11 +237,32 @@ export default function Home() {
       if (result.success && result.data) {
         setQueryResults(result.data)
         setStep("results")
+        // Update query status to executed
+        if (session?.user?.id && generatedSQL) {
+          const { data: existingHistory, error: fetchHistoryError } = await supabase
+            .from('query_history')
+            .select('id')
+            .eq('user_id', session.user.id)
+            .eq('generated_sql', generatedSQL)
+            .single()
+
+          if (fetchHistoryError) {
+            console.error('Error fetching history to update status:', fetchHistoryError)
+          } else if (existingHistory) {
+            const { error: updateHistoryError } = await supabase
+              .from('query_history')
+              .update({ status: 'executed' })
+              .eq('id', existingHistory.id)
+            if (updateHistoryError) {
+              console.error('Error updating query history status:', updateHistoryError)
+            }
+          }
+        }
       } else {
         setResultsError(result.detail || "Failed to execute SQL query.")
       }
     } catch (err: any) {
-      setResultsError(`Error executing query: ${err.message}`)
+      setResultsError(`An unexpected error occurred: ${err.message}`)
     } finally {
       setResultsLoading(false)
     }
@@ -193,8 +278,28 @@ export default function Home() {
 
   const currentStepIndex = steps.findIndex(s => s.key === step);
 
+  if (loadingSession) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8">
+        <Loader2 className="h-10 w-10 animate-spin" />
+        <p className="mt-4 text-lg">Loading session...</p>
+      </main>
+    )
+  }
+
+  if (!session) {
+    return null
+  }
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8">
+      <div className="absolute top-4 right-4 flex gap-2">
+        <Button variant="outline" size="sm" onClick={() => router.push('/dashboard')}>
+          Dashboard
+        </Button>
+        <ThemeToggle />
+        
+      </div>
       <div className="w-full max-w-5xl">
         {/* --- Updated Stepper UI --- */}
         <div className="flex items-start justify-between mb-12 w-full">
@@ -204,15 +309,13 @@ export default function Home() {
                 <div
                   className={`rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm transition-colors duration-300
                     ${i <= currentStepIndex ? "bg-primary text-primary-foreground scale-110 shadow-lg" : "bg-card text-muted-foreground border"
-                  }`}
-                >
+                  }`}>
                   {i + 1}
                 </div>
                 <div
                   className={`mt-2 text-xs font-semibold transition-colors duration-300 w-20 ${
                     i <= currentStepIndex ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
+                  }`}>
                   {s.label}
                 </div>
               </div>
@@ -224,7 +327,39 @@ export default function Home() {
         <AnimatePresence mode="wait">
           {step === "connect" && (
             <motion.div key="connect" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
-              <DbConnectionForm onSubmit={handleExtractSchema} isLoading={schemaLoading} error={schemaError} />
+              {showPasswordPrompt && dbConfig ? (
+                <Card className="w-full max-w-md mx-auto">
+                  <CardHeader>
+                    <CardTitle>Enter Password for {dbConfig.name || 'Connection'}</CardTitle>
+                    <CardDescription>Please provide the password to connect to your database.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="password">Password</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          value={passwordInput}
+                          onChange={(e) => setPasswordInput(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <Button
+                        type="submit"
+                        disabled={schemaLoading}
+                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                      >
+                        {schemaLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Connect
+                      </Button>
+                      {schemaError && <p className="text-sm text-destructive">{schemaError}</p>}
+                    </form>
+                  </CardContent>
+                </Card>
+              ) : (
+                <DbConnectionForm onSubmit={handleExtractSchema} isLoading={schemaLoading} error={schemaError} session={session} />
+              )}
             </motion.div>
           )}
 
@@ -258,7 +393,19 @@ export default function Home() {
           {step === "query" && dbConfig && (
              <motion.div key="query" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
               <div className="flex gap-2 mb-4 justify-center">
-                <Button variant={queryMode === 'recommendations' ? 'default' : 'secondary'} onClick={() => setQueryMode('recommendations')}>AI Recommendations</Button>
+                <Button
+                  variant={queryMode === 'recommendations' ? 'default' : 'secondary'}
+                  onClick={() => {
+                    setQueryMode('recommendations')
+                    setRecommendationsLoading(true)
+                    setTimeout(() => {
+                      handleLoadRecommendations()
+                    }, 5000) // 5-second delay
+                  }}
+                  disabled={recommendationsLoading}
+                >
+                  {recommendationsLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating AI Recommendations...</> : "AI Recommendations"}
+                </Button>
                 <Button variant={queryMode === 'manual' ? 'default' : 'secondary'} onClick={() => setQueryMode('manual')}>Manual Query</Button>
               </div>
 

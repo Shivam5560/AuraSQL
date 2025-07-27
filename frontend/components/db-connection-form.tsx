@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSupabaseClient, Session } from '@supabase/auth-helpers-react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,36 +10,55 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2 } from "lucide-react"
 
-interface DbConfig {
-  db_type: string
-  ip: string
-  port: number
-  username: string
-  password?: string
-  database: string
-  schema_name: string
-  table_name: string
-}
+import { DbConfig } from '@/lib/types'
 
 interface DbConnectionFormProps {
-  onSubmit: (config: DbConfig) => void
+  onSubmit: (config: DbConfig) => Promise<void>
   isLoading: boolean
   error: string | null
+  session: Session | null
+  initialData?: DbConfig // Added for editing
 }
 
-export function DbConnectionForm({ onSubmit, isLoading, error }: DbConnectionFormProps) {
-  const [dbType, setDbType] = useState("postgresql")
-  const [ip, setIp] = useState("localhost")
-  const [port, setPort] = useState("5432")
-  const [username, setUsername] = useState("shivamsourav")
-  const [password, setPassword] = useState("")
-  const [database, setDatabase] = useState("postgres")
-  const [schemaName, setSchemaName] = useState("public")
-  const [tableName, setTableName] = useState("sales")
+export function DbConnectionForm({ onSubmit, isLoading, error, session, initialData }: DbConnectionFormProps) {
+  const supabase = useSupabaseClient()
+  const [savedConnections, setSavedConnections] = useState<DbConfig[]>([])
+  const [selectedConnectionId, setSelectedConnectionId] = useState<string>("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!initialData) {
+      const fetchConnections = async () => {
+        if (!session?.user?.id) return
+        const { data, error } = await supabase
+          .from('connections')
+          .select('*')
+          .eq('user_id', session.user.id)
+
+        if (error) {
+          console.error('Error fetching connections:', error)
+        } else if (data) {
+          setSavedConnections(data)
+        }
+      }
+      fetchConnections()
+    }
+  }, [session, supabase, initialData])
+  const [dbType, setDbType] = useState(initialData?.db_type || "postgresql")
+  const [ip, setIp] = useState(initialData?.ip || "localhost")
+  const [port, setPort] = useState(String(initialData?.port || "5432"))
+  const [username, setUsername] = useState(initialData?.username || "shivamsourav")
+  const [password, setPassword] = useState(initialData?.password ?? "")
+  const [database, setDatabase] = useState(initialData?.database ?? "postgres")
+  const [schemaName, setSchemaName] = useState(initialData?.schema_name || "public")
+  const [tableName, setTableName] = useState(initialData?.table_name || "sales")
+  const [saveConnection, setSaveConnection] = useState(!!initialData)
+  const [connectionName, setConnectionName] = useState(initialData?.name ?? "")
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const config: DbConfig = {
+      id: initialData?.id ?? "",
+      name: initialData?.name ?? "",
       db_type: dbType,
       ip,
       port: Number.parseInt(port),
@@ -50,6 +69,40 @@ export function DbConnectionForm({ onSubmit, isLoading, error }: DbConnectionFor
       table_name: tableName,
     }
     onSubmit(config)
+
+    if (saveConnection && session?.user?.id) {
+      const { data: connectionData, error: connectionError } = await supabase
+        .from('connections')
+        .insert({
+          user_id: session.user.id,
+          name: connectionName,
+          db_type: dbType,
+          ip,
+          port: Number.parseInt(port),
+          username,
+          database,
+          schema_name: schemaName,
+          table_name: tableName,
+        })
+        .select()
+        .single()
+
+      if (connectionError) {
+        console.error('Error saving connection:', connectionError)
+        // Optionally, set an error state for the form
+      } else if (connectionData && password) {
+        const { error: secretError } = await supabase
+          .from('secrets')
+          .insert({
+            connection_id: connectionData.id,
+            password,
+          })
+        if (secretError) {
+          console.error('Error saving password:', secretError)
+          // Optionally, set an error state for the form
+        }
+      }
+    }
   }
 
   return (
@@ -60,6 +113,53 @@ export function DbConnectionForm({ onSubmit, isLoading, error }: DbConnectionFor
       </CardHeader>
       <CardContent className="space-y-6">
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="savedConnection">Saved Connections</Label>
+            <Select
+              value={selectedConnectionId || ""}
+              onValueChange={(value) => {
+                setSelectedConnectionId(value)
+                if (value === "new") {
+                  setDbType("postgresql")
+                  setIp("localhost")
+                  setPort("5432")
+                  setUsername("shivamsourav")
+                  setPassword("")
+                  setDatabase("postgres")
+                  setSchemaName("public")
+                  setTableName("sales")
+                  setConnectionName("")
+                  setSaveConnection(false)
+                } else {
+                  const selected = savedConnections.find(conn => conn.id === value)
+                  if (selected) {
+                    setDbType(selected.db_type)
+                    setIp(selected.ip)
+                    setPort(String(selected.port))
+                    setUsername(selected.username)
+                    setPassword(selected.password ?? "")
+                    setDatabase(selected.database ?? "")
+                    setSchemaName(selected.schema_name)
+                    setTableName(selected.table_name)
+                    setConnectionName(selected.name ?? "")
+                    setSaveConnection(true)
+                  }
+                }
+              }}
+            >
+              <SelectTrigger id="savedConnection" className="w-full">
+                <SelectValue placeholder="Select a saved connection" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="new">New Connection</SelectItem>
+                {savedConnections.map((conn) => (
+                  <SelectItem key={conn.id} value={conn.id}>
+                    {conn.name ?? ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="dbType">Database Type</Label>
             <Select value={dbType} onValueChange={setDbType}>
@@ -101,15 +201,36 @@ export function DbConnectionForm({ onSubmit, isLoading, error }: DbConnectionFor
             <Label htmlFor="tableName">Table Name</Label>
             <Input id="tableName" value={tableName} onChange={(e) => setTableName(e.target.value)} required />
           </div>
+          <div className="col-span-full flex items-center space-x-2">
+            <input
+              type="checkbox"
+              id="saveConnection"
+              checked={saveConnection}
+              onChange={(e) => setSaveConnection(e.target.checked)}
+              className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+            />
+            <Label htmlFor="saveConnection">Save Connection</Label>
+          </div>
+          {saveConnection && (
+            <div className="col-span-full space-y-2">
+              <Label htmlFor="connectionName">Connection Name</Label>
+              <Input
+                id="connectionName"
+                value={connectionName}
+                onChange={(e) => setConnectionName(e.target.value)}
+                required
+              />
+            </div>
+          )}
           <div className="col-span-full flex justify-end pt-4">
-          <Button
-            type="submit"
-            disabled={isLoading}
-            className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90"
-          >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Connect
-          </Button>
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Connect
+            </Button>
           </div>
           {error && <p className="col-span-full text-sm text-red-500">{error}</p>}
         </form>

@@ -1,4 +1,4 @@
-import type React from "react"
+import SupabaseProvider from '@/components/supabase-provider'
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -19,20 +19,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={"{inter.className}"}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <div className="absolute top-4 right-4">
-            <ThemeToggle />
-          </div>
-          <div id="root">
-            {children}
-          </div>
-        </ThemeProvider>
+      <body className={inter.className}>
+        <SupabaseProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            
+            <div id="root">
+              {children}
+            </div>
+          </ThemeProvider>
+        </SupabaseProvider>
       </body>
     </html>
   )
