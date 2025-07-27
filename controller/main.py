@@ -6,6 +6,8 @@ from scratch.rag.QueryEngine import insert_schema, generate_query_engine  # Use 
 from fastapi import FastAPI, HTTPException, Request
 from scratch.db.extract_schema import ExtractSchema
 from scratch.utils.clean_format import clean_json
+from scratch.utils.system_prompt import system_prompt  # Import the system prompt
+from scratch.models.recommendations import recommendations  # Import the prompt for recommendations
 # Add the root directory to sys.path
 import json
 
@@ -75,7 +77,8 @@ async def query_api(request: Request):
          # Validate user query
         if not user_query:
             raise HTTPException(status_code=400, detail="User query cannot be empty.")
-        sql_query = generate_query_engine(user_query, db_type, schema_name, table_name)
+        formatted_query = f"{system_prompt}\nUser Query:\n{user_query}\nTable Name: {table_name}\nDb Type: {db_type}\n"
+        sql_query = generate_query_engine(formatted_query, db_type, schema_name, table_name)
         sql_query = json.loads(sql_query.strip())  # Ensure the response is in JSON format
         if sql_query:
             return {"success": True, "sql": sql_query.get("sql", "")}
@@ -83,6 +86,22 @@ async def query_api(request: Request):
             raise HTTPException(status_code=500, detail="Failed to generate SQL query.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating SQL query: {str(e)}")
+
+@app.post("/recommendations")
+async def recommendations_api(request: Request):
+    data = await request.json()
+    db_type = data.get("db_type")
+    table_name = data.get("table_name")
+    schema_name = data.get("schema_name")
+    """Generate recommendations for database operations"""
+    try:
+        response = recommendations(db_type, schema_name, table_name)
+        if response:
+            return {"success": True, "recommendations": response.get("recommendations", [])}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to generate recommendations.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating recommendations: {str(e)}")
 
 
 # STart the FastAPI application

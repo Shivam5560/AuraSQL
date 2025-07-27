@@ -136,14 +136,12 @@ def generate_query_engine(user_query, db_type, schema_name, table_name):
             retriever=retriever,
             llm=Settings.llm
         )
-
-        # Concatenate system prompt with user query
-        formatted_query = f"{system_prompt}\nUser Query:\n{user_query}\nTable Name: {table_name}\nDb Type: {db_type}\n"
+        
         logging.info("Executing query...")
-        response = query_engine.query(formatted_query)
+        response = query_engine.query(user_query)
 
         logging.info("Query executed successfully.")
-        logging.info(f"Response: {response}")
+        # logging.info(f"Response: {response}")
         response = clean_json(response.response)  # Ensure the response is in the expected JSON format
         print("Response cleaned and formatted successfully.")
         return response.strip()
