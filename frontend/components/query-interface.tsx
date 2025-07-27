@@ -224,7 +224,9 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
               <p className="text-muted-foreground">No schema details available for &quot;{tableName}&quot;.</p>
             )}
             <div className="flex justify-end pt-4">
-              <Button onClick={() => setStep("query")}>Continue to Query Generation</Button>
+            <Button onClick={() => setStep("query")} className="bg-primary text-primary-foreground hover:bg-primary/90">
+              Continue to Query Generation
+            </Button>
             </div>
           </CardContent>
         </Card>

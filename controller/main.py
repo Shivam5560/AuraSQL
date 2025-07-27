@@ -1,24 +1,76 @@
-# main driver code for the orchestration of the application
+# main.py
+
 import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from scratch.rag.QueryEngine import insert_schema, generate_query_engine  # Use the synchronous insert_schema
-from fastapi import FastAPI, HTTPException, Request
-from scratch.db.extract_schema import ExtractSchema
-from scratch.utils.clean_format import clean_json
-from scratch.utils.system_prompt import system_prompt  # Import the system prompt
-from scratch.models.recommendations import recommendations  # Import the prompt for recommendations
-# Add the root directory to sys.path
-from fastapi.middleware.cors import CORSMiddleware
 import json
-import asyncio
 import logging
+import asyncio
+from contextlib import asynccontextmanager
+from functools import partial
 
-global_db_type = []
-global_table_name = []  
+# FastAPI and related imports
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
-# Add CORS middleware
+# Add parent directory to path to allow imports from 'scratch'
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+# Your application's modules
+from scratch.rag.QueryEngine import insert_schema, generate_query_engine
+from scratch.db.extract_schema import ExtractSchema
+from scratch.utils.system_prompt import system_prompt
+from scratch.models.recommendations import recommendations
+
+# Imports for client initialization
+from dotenv import load_dotenv
+import pinecone
+from llama_index.llms.groq import Groq
+from llama_index.embeddings.cohere import CohereEmbedding
+
+# --- 1. INITIAL SETUP & LIFECYCLE MANAGEMENT ---
+
+load_dotenv()
+logging.basicConfig(level=logging.INFO)
+
+# A dictionary to hold all initialized clients and caches.
+app_state = {}
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    This function runs once when the application starts.
+    It initializes all heavyweight clients and stores them in app_state.
+    """
+    logging.info("Application starting up...")
+    
+    # Initialize all clients
+    app_state["pinecone_index"] = pinecone.Pinecone(api_key=os.getenv("PINECONE_API_KEY")).Index("tableindex")
+    app_state["llm"] = Groq(
+        model="llama-3.1-8b-instant",
+        api_key=os.getenv("GROQ_API_KEY"),
+        response_format={"type": "json_object"},
+        temperature=0.1,
+        max_completion_tokens=512,
+        stream=False,
+    )
+    app_state["embed_model_doc"] = CohereEmbedding(
+        api_key=os.getenv("COHERE_API_KEY"), model_name="embed-v4.0", input_type="search_document"
+    )
+    app_state["embed_model_query"] = CohereEmbedding(
+        api_key=os.getenv("COHERE_API_KEY"), model_name="embed-v4.0", input_type="search_query"
+    )
+    app_state["query_engine_cache"] = {}
+    
+    logging.info("All clients initialized successfully.")
+    
+    yield  # The application is now running
+
+    logging.info("Application shutting down...")
+    app_state.clear()
+
+
+app = FastAPI(lifespan=lifespan)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://172.20.10.3:3000"],
@@ -26,14 +78,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-logging.basicConfig(level=logging.INFO)
 
-TIMEOUT_SECONDS = 20  # Set a reasonable timeout for all blocking operations
+TIMEOUT_SECONDS = 20  # Using the timeout from your original file
+
+# --- 2. API ENDPOINTS ---
 
 @app.get("/")
 async def root():
     return {"message": "Text-to-SQL Server is running! 🚀"}
 
+# This endpoint is restored to its original implementation
 @app.post("/extract-schema")
 async def extract_schema(request: Request):
     """Extract database schema information"""
@@ -52,8 +106,10 @@ async def extract_schema(request: Request):
             )
             return schema_extractor.extract_schema_details()
         schema_details = await asyncio.wait_for(do_extract(), timeout=TIMEOUT_SECONDS)
-        global_db_type.append(config['db_type'])
-        global_table_name.append(config['table_name'])
+        # Note: Using global variables like this is not recommended in a production server
+        # as it's not safe with multiple workers. The data should be passed in each request.
+        # global_db_type.append(config['db_type'])
+        # global_table_name.append(config['table_name'])
         return {
             "success": True,
             "schema": schema_details,
@@ -64,51 +120,68 @@ async def extract_schema(request: Request):
     except Exception as e:
         logging.error(f"Schema extraction failed: {e}")
         raise HTTPException(status_code=400, detail=f"Schema extraction failed: {str(e)}")
-    
-# Schema details that we got from extract_schema api   
-# We will use db_type schema_name and table_name from the frontend side as request body
 
+# This endpoint is OPTIMIZED
 @app.post("/insert_schema")
 async def insert_schema_api(request: Request):
     try:
         data = await asyncio.wait_for(request.json(), timeout=TIMEOUT_SECONDS)
-        db_type = data.get("db_type")
-        table_name = data.get("table_name")
-        schema_name = data.get("schema_name")
-        schema_details = data.get("schema_details", None)
-        def do_insert():
-            return insert_schema(schema_details, db_type, schema_name, table_name)
+        
+        do_insert = partial(
+            insert_schema,
+            schema_json=data.get("schema_details"),
+            db_type=data.get("db_type"),
+            schema_name=data.get("schema_name"),
+            table_name=data.get("table_name"),
+            pinecone_index=app_state["pinecone_index"],
+            embed_model_doc=app_state["embed_model_doc"],
+            query_engine_cache=app_state["query_engine_cache"]
+        )
+
         result = await asyncio.get_event_loop().run_in_executor(None, do_insert)
+
         if result:
             return {"success": True, "message": "Schema inserted successfully."}
         else:
             raise HTTPException(status_code=500, detail="Failed to insert schema.")
+            
     except asyncio.TimeoutError:
         logging.error("Timeout in /insert_schema")
         raise HTTPException(status_code=504, detail="Schema insert timed out.")
     except Exception as e:
         logging.error(f"Error inserting schema: {e}")
         raise HTTPException(status_code=500, detail=f"Error inserting schema: {str(e)}")
-    
+
 @app.post("/query")
 async def query_api(request: Request):
     try:
         data = await asyncio.wait_for(request.json(), timeout=TIMEOUT_SECONDS)
-        db_type = data.get("db_type")
-        table_name = data.get("table_name")
-        schema_name = data.get("schema_name")
-        user_query = data.get("query", None)
+        user_query = data.get("query")
         if not user_query:
             raise HTTPException(status_code=400, detail="User query cannot be empty.")
-        def do_generate():
-            formatted_query = f"{system_prompt}\nUser Query:\n{user_query}\nTable Name: {table_name}\nDb Type: {db_type}\n"
-            sql_query = generate_query_engine(formatted_query, db_type, schema_name, table_name)
-            return json.loads(sql_query.strip())
-        sql_query = await asyncio.get_event_loop().run_in_executor(None, do_generate)
-        if sql_query:
+            
+        formatted_query = f"{system_prompt}\nUser Query:\n{user_query}\nTable Name: {data.get('table_name')}\nDb Type: {data.get('db_type')}\n"
+
+        # --- The Main Change ---
+        # No more functools.partial or run_in_executor needed for this call.
+        # We can await the async function directly.
+        sql_query_json = await generate_query_engine(
+            user_query=formatted_query,
+            db_type=data.get("db_type"),
+            schema_name=data.get("schema_name"),
+            table_name=data.get("table_name"),
+            pinecone_index=app_state["pinecone_index"],
+            llm=app_state["llm"],
+            embed_model_query=app_state["embed_model_query"],
+            query_engine_cache=app_state["query_engine_cache"]
+        )
+
+        if sql_query_json:
+            sql_query = json.loads(sql_query_json)
             return {"success": True, "sql": sql_query.get("sql", "")}
         else:
             raise HTTPException(status_code=500, detail="Failed to generate SQL query.")
+            
     except asyncio.TimeoutError:
         logging.error("Timeout in /query")
         raise HTTPException(status_code=504, detail="SQL generation timed out.")
@@ -120,15 +193,25 @@ async def query_api(request: Request):
 async def recommendations_api(request: Request):
     try:
         data = await asyncio.wait_for(request.json(), timeout=TIMEOUT_SECONDS)
-        db_type = data.get("db_type")
-        table_name = data.get("table_name")
-        schema_name = data.get("schema_name")
-        # Await the async recommendations function
-        response = await recommendations(db_type, schema_name, table_name)
+
+        # --- THIS IS THE LINE TO FIX ---
+        # Add the "await" keyword before the function call.
+        response = await recommendations(
+            db_type=data.get("db_type"),
+            schema_name=data.get("schema_name"),
+            table_name=data.get("table_name"),
+            pinecone_index=app_state["pinecone_index"],
+            llm=app_state["llm"],
+            embed_model_query=app_state["embed_model_query"],
+            query_engine_cache=app_state["query_engine_cache"]
+        )
+        
         if response:
+            # This line will now work because 'response' is a dictionary
             return {"success": True, "recommendations": response.get("recommendations", [])}
         else:
             raise HTTPException(status_code=500, detail="Failed to generate recommendations.")
+
     except asyncio.TimeoutError:
         logging.error("Timeout in /recommendations")
         raise HTTPException(status_code=504, detail="Recommendations timed out.")
@@ -136,6 +219,7 @@ async def recommendations_api(request: Request):
         logging.error(f"Error generating recommendations: {e}")
         raise HTTPException(status_code=500, detail=f"Error generating recommendations: {str(e)}")
 
+# This endpoint is restored to its original implementation
 @app.post("/query_sql")
 async def execute_sql(request: Request):
     try:
@@ -164,4 +248,3 @@ async def execute_sql(request: Request):
     except Exception as e:
         logging.error(f"Schema extraction failed: {e}")
         raise HTTPException(status_code=400, detail=f"Schema extraction failed: {str(e)}")
-

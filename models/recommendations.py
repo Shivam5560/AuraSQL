@@ -1,19 +1,41 @@
-from llama_index.llms.groq import Groq
+import json
 from scratch.rag.QueryEngine import generate_query_engine
 from scratch.utils.prompt_recommendations import prompt
-from scratch.utils.clean_format import clean_json
-import json
-import os
-def recommendations(db_type, schema_name, table_name):
-    recommendations =  generate_query_engine(
-        user_query=prompt,
-        db_type=db_type,
-        schema_name=schema_name,
-        table_name=table_name
-    )
+import logging
+import asyncio # Import asyncio
+
+# Change to 'async def'
+async def recommendations(
+    db_type: str,
+    schema_name: str,
+    table_name: str,
+    *,
+    pinecone_index,
+    llm,
+    embed_model_query,
+    query_engine_cache: dict
+):
+    """
+    Generates recommendations by asynchronously calling the query engine.
+    """
     try:
-        return json.loads(recommendations.strip())  # Ensure the response is in JSON format
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Failed to decode JSON response in recommendations: {e}")
+        # Add 'await' to the call
+        recommendations_json = await generate_query_engine(
+            user_query=prompt,
+            db_type=db_type,
+            schema_name=schema_name,
+            table_name=table_name,
+            pinecone_index=pinecone_index,
+            llm=llm,
+            embed_model_query=embed_model_query,
+            query_engine_cache=query_engine_cache
+        )
+        
+        if recommendations_json is None:
+            raise ValueError("Received no response from the query engine.")
+
+        return json.loads(recommendations_json) # .strip() is handled by clean_json
+
     except Exception as e:
-        raise ValueError(f"An unexpected error occurred in recommendations: {e}")
+        logging.error(f"An unexpected error occurred in recommendations: {e}")
+        raise

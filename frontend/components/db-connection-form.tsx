@@ -53,7 +53,7 @@ export function DbConnectionForm({ onSubmit, isLoading, error }: DbConnectionFor
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card className="w-full max-w-5xl mx-auto">
       <CardHeader>
         <CardTitle className="text-2xl font-semibold">Database Connection</CardTitle>
         <CardDescription>Enter your database connection details to connect and register schema.</CardDescription>
@@ -102,10 +102,14 @@ export function DbConnectionForm({ onSubmit, isLoading, error }: DbConnectionFor
             <Input id="tableName" value={tableName} onChange={(e) => setTableName(e.target.value)} required />
           </div>
           <div className="col-span-full flex justify-end pt-4">
-            <Button type="submit" disabled={isLoading} className="w-full md:w-auto">
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Connect
-            </Button>
+          <Button
+            type="submit"
+            disabled={isLoading}
+            className="w-full md:w-auto bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Connect
+          </Button>
           </div>
           {error && <p className="col-span-full text-sm text-red-500">{error}</p>}
         </form>

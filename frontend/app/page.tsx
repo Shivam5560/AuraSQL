@@ -1,17 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { DbConnectionForm } from "@/components/db-connection-form"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-// Tabs component not found, so we will use buttons for tab switching.
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Loader2 } from "lucide-react"
 import { extractSchema, insertSchema, getRecommendations, generateQuery, executeQuery } from "@/lib/api"
 
+// --- Interfaces for your data structures ---
 interface DbConfig {
   db_type: string
   ip: string
@@ -41,9 +41,9 @@ interface ExtractedSchema {
 }
 
 type Step = "connect" | "schema" | "query" | "sql" | "results"
-
 type QueryMode = "recommendations" | "manual"
 
+// --- Main Page Component ---
 export default function Home() {
   const [step, setStep] = useState<Step>("connect")
   const [dbConfig, setDbConfig] = useState<DbConfig | null>(null)
@@ -64,17 +64,6 @@ export default function Home() {
   const [resultsLoading, setResultsLoading] = useState(false)
   const [resultsError, setResultsError] = useState<string | null>(null)
   const [queryResults, setQueryResults] = useState<Record<string, any>[]>([])
-  const [theme, setTheme] = useState<'dark' | 'light'>(typeof window !== 'undefined' && document.documentElement.classList.contains('dark') ? 'dark' : 'light')
-  const toggleTheme = () => {
-    const html = document.documentElement;
-    if (theme === 'dark') {
-      html.classList.remove('dark');
-      setTheme('light');
-    } else {
-      html.classList.add('dark');
-      setTheme('dark');
-    }
-  }
 
   // Step 1: Connect (extract-schema)
   const handleExtractSchema = async (config: DbConfig) => {
@@ -105,12 +94,12 @@ export default function Home() {
     try {
       const tableName = dbConfig.table_name
       const schemaDetailsForInsert = { [tableName]: extractedSchema[tableName] }
-        const insertResult = await insertSchema(
+      const insertResult = await insertSchema(
         dbConfig.db_type,
         dbConfig.table_name,
         dbConfig.schema_name,
-          schemaDetailsForInsert,
-        )
+        schemaDetailsForInsert,
+      )
       if (insertResult.success) {
         setStep("query")
       } else {
@@ -123,24 +112,28 @@ export default function Home() {
     }
   }
 
-  // Step 3: Recommendations (only when user clicks tab)
-  const handleLoadRecommendations = async () => {
-    if (!dbConfig) return
-    setRecommendationsLoading(true)
-    setRecommendationsError(null)
-    try {
-      const result = await getRecommendations(dbConfig.db_type, dbConfig.table_name, dbConfig.schema_name)
-      if (result.success && result.recommendations) {
-        setRecommendations(result.recommendations)
-      } else {
-        setRecommendationsError(result.detail || "Failed to fetch recommendations.")
+  // Step 3: Recommendations
+  useEffect(() => {
+    const handleLoadRecommendations = async () => {
+      if (step !== 'query' || !dbConfig) return
+      setRecommendationsLoading(true)
+      setRecommendationsError(null)
+      try {
+        const result = await getRecommendations(dbConfig.db_type, dbConfig.table_name, dbConfig.schema_name)
+        if (result.success && result.recommendations) {
+          setRecommendations(result.recommendations)
+        } else {
+          setRecommendationsError(result.detail || "Failed to fetch recommendations.")
+        }
+      } catch (err: any) {
+        setRecommendationsError(`Error fetching recommendations: ${err.message}`)
+      } finally {
+        setRecommendationsLoading(false)
       }
-    } catch (err: any) {
-      setRecommendationsError(`Error fetching recommendations: ${err.message}`)
-    } finally {
-      setRecommendationsLoading(false)
     }
-  }
+    handleLoadRecommendations()
+  }, [step, dbConfig])
+
 
   // Step 4: Generate SQL
   const handleGenerateSQL = async (query: string) => {
@@ -190,7 +183,6 @@ export default function Home() {
     }
   }
 
-  // Stepper UI
   const steps = [
     { key: "connect", label: "Connect" },
     { key: "schema", label: "Schema" },
@@ -199,174 +191,151 @@ export default function Home() {
     { key: "results", label: "Results" },
   ]
 
+  const currentStepIndex = steps.findIndex(s => s.key === step);
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-2 py-8">
-      <div className="w-full max-w-3xl">
-        {/* Stepper */}
-        <div className="flex items-center justify-center mb-8">
+    <main className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8">
+      <div className="w-full max-w-5xl">
+        {/* --- Updated Stepper UI --- */}
+        <div className="flex items-start justify-between mb-12 w-full">
           {steps.map((s, i) => (
-            <div key={s.key} className="flex items-center">
-              <div className={`rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm transition-colors duration-300
-                ${step === s.key ? "bg-accent text-accent-foreground scale-110 shadow-lg" : "bg-card text-muted-foreground border border-border"}`}>{i + 1}</div>
-              {i < steps.length - 1 && <div className="w-8 h-1 bg-border mx-2 rounded transition-all duration-300" />}
+            <div key={s.key} className="flex items-center w-full">
+              <div className="flex flex-col items-center text-center">
+                <div
+                  className={`rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm transition-colors duration-300
+                    ${i <= currentStepIndex ? "bg-primary text-primary-foreground scale-110 shadow-lg" : "bg-card text-muted-foreground border"
+                  }`}
+                >
+                  {i + 1}
+                </div>
+                <div
+                  className={`mt-2 text-xs font-semibold transition-colors duration-300 w-20 ${
+                    i <= currentStepIndex ? "text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  {s.label}
+                </div>
+              </div>
+              {i < steps.length - 1 && <div className={`w-full h-1 mx-4 rounded transition-all duration-300 ${i < currentStepIndex ? "bg-primary" : "bg-border"}`} />}
             </div>
           ))}
         </div>
+
         <AnimatePresence mode="wait">
           {step === "connect" && (
-            <motion.div key="connect" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -40 }} transition={{ duration: 0.4 }}>
+            <motion.div key="connect" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
               <DbConnectionForm onSubmit={handleExtractSchema} isLoading={schemaLoading} error={schemaError} />
             </motion.div>
           )}
+
           {step === "schema" && dbConfig && extractedSchema && (
-            <motion.div key="schema" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -40 }} transition={{ duration: 0.4 }}>
-              <Card className="mb-6 animate-in fade-in zoom-in bg-card text-card-foreground">
+            <motion.div key="schema" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+              <Card>
                 <CardHeader>
-                  <CardTitle>Extracted Schema for <span className="text-accent">{dbConfig.table_name}</span></CardTitle>
-                  <CardDescription>Review the schema details for the selected table.</CardDescription>
+                  <CardTitle>Extracted Schema for <span className="text-primary">{dbConfig.table_name}</span></CardTitle>
+                  <CardDescription>Review the schema and continue to generate queries.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="overflow-x-auto rounded-md border border-border mb-4">
+                  <div className="overflow-x-auto rounded-md border mb-4">
                     <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Column Name</TableHead>
-                          <TableHead>Data Type</TableHead>
-                          <TableHead>Nullable</TableHead>
-                          <TableHead>Constraint</TableHead>
-                        </TableRow>
-                      </TableHeader>
+                      <TableHeader><TableRow><TableHead>Column</TableHead><TableHead>Type</TableHead><TableHead>Nullable</TableHead><TableHead>Constraint</TableHead></TableRow></TableHeader>
                       <TableBody>
                         {extractedSchema[dbConfig.table_name]?.map((col, idx) => (
-                          <TableRow key={idx}>
-                            <TableCell>{col.column_name}</TableCell>
-                            <TableCell>{col.data_type}</TableCell>
-                            <TableCell>{col.is_nullable === "NO" ? "No" : "Yes"}</TableCell>
-                            <TableCell>{col.constraint_type || "N/A"}</TableCell>
-                          </TableRow>
+                          <TableRow key={idx}><TableCell>{col.column_name}</TableCell><TableCell>{col.data_type}</TableCell><TableCell>{col.is_nullable === "NO" ? "No" : "Yes"}</TableCell><TableCell>{col.constraint_type || "N/A"}</TableCell></TableRow>
                         ))}
                       </TableBody>
                     </Table>
                   </div>
-                  {insertError && <div className="text-red-500 mb-2">{insertError}</div>}
-                  <Button onClick={handleInsertSchema} disabled={insertLoading} className="w-full mt-2">
-                    {insertLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Register Schema...</> : "Continue to Query Generation"}
+                  {insertError && <p className="text-sm text-destructive mb-2">{insertError}</p>}
+                  <Button onClick={handleInsertSchema} disabled={insertLoading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+                    {insertLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Registering Schema...</> : "Continue to Query Generation"}
                   </Button>
                 </CardContent>
               </Card>
             </motion.div>
           )}
+
           {step === "query" && dbConfig && (
-            <motion.div key="query" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -40 }} transition={{ duration: 0.4 }}>
-              <Card className="mb-6 animate-in fade-in zoom-in bg-card text-card-foreground">
-                <CardHeader>
-                  <CardTitle>Query Generation</CardTitle>
-                  <CardDescription>Choose between AI recommendations or manual query.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2 mb-4">
-                    <Button variant={queryMode === 'recommendations' ? 'default' : 'outline'} onClick={() => { setQueryMode('recommendations'); handleLoadRecommendations(); }}>
-                      AI Recommendations
-                    </Button>
-                    <Button variant={queryMode === 'manual' ? 'default' : 'outline'} onClick={() => setQueryMode('manual')}>
-                      Manual Query
-                    </Button>
-                  </div>
-                  {queryMode === 'recommendations' && (
-                    recommendationsLoading ? (
-                      <div className="flex items-center justify-center p-4 text-muted-foreground">
-                        <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                        <span>Loading recommendations...</span>
-                      </div>
-                    ) : recommendationsError ? (
-                      <div className="text-red-500">{recommendationsError}</div>
-                    ) : recommendations.length > 0 ? (
+             <motion.div key="query" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+              <div className="flex gap-2 mb-4 justify-center">
+                <Button variant={queryMode === 'recommendations' ? 'default' : 'secondary'} onClick={() => setQueryMode('recommendations')}>AI Recommendations</Button>
+                <Button variant={queryMode === 'manual' ? 'default' : 'secondary'} onClick={() => setQueryMode('manual')}>Manual Query</Button>
+              </div>
+
+              {queryMode === 'recommendations' ? (
+                <Card>
+                  <CardHeader><CardTitle>AI Query Recommendations</CardTitle><CardDescription>Select a recommendation to generate an SQL query.</CardDescription></CardHeader>
+                  <CardContent>
+                    {recommendationsLoading ? (<div className="flex items-center justify-center p-4"><Loader2 className="h-6 w-6 animate-spin mr-2" />Loading...</div>
+                    ) : recommendationsError ? (<p className="text-sm text-destructive">{recommendationsError}</p>
+                    ) : (
                       <div className="flex flex-col gap-2">
                         {recommendations.map((rec, idx) => (
-                          <div key={idx} className={`flex items-center gap-2 p-3 rounded-lg cursor-pointer transition-colors ${selectedRecommendation === rec ? "bg-accent/30" : "hover:bg-muted/30"}`} onClick={() => setSelectedRecommendation(rec)}>
-                            <Badge variant={selectedRecommendation === rec ? "default" : "secondary"}>AI</Badge>
-                            <span className="flex-1 text-foreground">{rec}</span>
+                          <div key={idx} className={`p-3 rounded-md cursor-pointer transition-colors border ${selectedRecommendation === rec ? "bg-accent border-primary" : "hover:bg-accent/50"}`} onClick={() => setSelectedRecommendation(rec)}>
+                            <p>{rec}</p>
                           </div>
                         ))}
-                        <Button className="mt-4" disabled={!selectedRecommendation || sqlLoading} onClick={() => selectedRecommendation && handleGenerateSQL(selectedRecommendation)}>
-                          {sqlLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating SQL...</> : "Generate SQL"}
-                        </Button>
-                        {sqlError && <div className="text-red-500 mt-2">{sqlError}</div>}
                       </div>
-                    ) : (
-                      <div className="text-muted-foreground">No recommendations available. Click to load.</div>
-                    )
-                  )}
-                  {queryMode === 'manual' && (
-                    <div className="flex flex-col gap-4">
-                      <Textarea
-                        placeholder="Describe your query in natural language..."
-                        value={manualQuery}
-                        onChange={e => setManualQuery(e.target.value)}
-                        className="min-h-[100px]"
-                      />
-                      <Button className="w-full" disabled={!manualQuery.trim() || sqlLoading} onClick={() => handleGenerateSQL(manualQuery)}>
-                        {sqlLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating SQL...</> : "Generate SQL"}
-                      </Button>
-                      {sqlError && <div className="text-red-500 mt-2">{sqlError}</div>}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    )}
+                    <Button className="w-full mt-4 bg-primary text-primary-foreground hover:bg-primary/90" disabled={!selectedRecommendation || sqlLoading} onClick={() => selectedRecommendation && handleGenerateSQL(selectedRecommendation)}>
+                      {sqlLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</> : "Generate SQL for Selection"}
+                    </Button>
+                    {sqlError && <p className="text-sm text-destructive mt-2">{sqlError}</p>}
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardHeader><CardTitle>Manual Query</CardTitle><CardDescription>Describe your query in natural language.</CardDescription></CardHeader>
+                  <CardContent>
+                    <Textarea placeholder="e.g., 'Show me total sales per customer'" value={manualQuery} onChange={e => setManualQuery(e.target.value)} className="min-h-[120px] mb-4" />
+                    <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90" disabled={!manualQuery.trim() || sqlLoading} onClick={() => handleGenerateSQL(manualQuery)}>
+                      {sqlLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</> : "Generate SQL"}
+                    </Button>
+                    {sqlError && <p className="text-sm text-destructive mt-2">{sqlError}</p>}
+                  </CardContent>
+                </Card>
+              )}
             </motion.div>
           )}
+
           {step === "sql" && generatedSQL && (
-            <motion.div key="sql" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -40 }} transition={{ duration: 0.4 }}>
-              <Card className="mb-6 animate-in fade-in zoom-in bg-card text-card-foreground">
-                <CardHeader>
-                  <CardTitle>Generated SQL</CardTitle>
-                  <CardDescription>Review and execute your SQL query.</CardDescription>
-                </CardHeader>
+            <motion.div key="sql" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+              <Card>
+                <CardHeader><CardTitle>Generated SQL</CardTitle><CardDescription>Review and execute the query.</CardDescription></CardHeader>
                 <CardContent>
-                  <Textarea value={generatedSQL} readOnly className="min-h-[100px] font-mono bg-muted/30 text-foreground mb-4" />
-                  <Button className="w-full" onClick={handleExecuteSQL} disabled={resultsLoading}>
-                    {resultsLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Executing...</> : "Execute SQL"}
+                  <Textarea value={generatedSQL} readOnly className="min-h-[120px] font-mono bg-muted text-muted-foreground mb-4" />
+                  <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90" onClick={handleExecuteSQL} disabled={resultsLoading}>
+                    {resultsLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Executing...</> : "Execute SQL Query"}
                   </Button>
-                  {resultsError && <div className="text-red-500 mt-2">{resultsError}</div>}
+                  {resultsError && <p className="text-sm text-destructive mt-2">{resultsError}</p>}
                 </CardContent>
               </Card>
             </motion.div>
           )}
+
           {step === "results" && (
-            <motion.div key="results" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -40 }} transition={{ duration: 0.4 }}>
-              <Card className="mb-6 animate-in fade-in zoom-in bg-card text-card-foreground">
-                <CardHeader>
-                  <CardTitle>Query Results</CardTitle>
-                  <CardDescription>Here are the results of your SQL query.</CardDescription>
-                </CardHeader>
+            <motion.div key="results" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
+              <Card>
+                <CardHeader><CardTitle>Query Results</CardTitle><CardDescription>Results from your executed query.</CardDescription></CardHeader>
                 <CardContent>
-                  {queryResults.length > 0 ? (
-                    <div className="overflow-x-auto rounded-md border border-border">
+                  {resultsError ? (<p className="text-sm text-destructive">{resultsError}</p>
+                  ) : queryResults.length > 0 ? (
+                    <div className="overflow-x-auto rounded-md border">
                       <Table>
-                        <TableHeader>
-                          <TableRow>
-                            {Object.keys(queryResults[0]).map((key) => (
-                              <TableHead key={key}>{key}</TableHead>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
+                        <TableHeader><TableRow>{Object.keys(queryResults[0]).map((key) => (<TableHead key={key}>{key}</TableHead>))}</TableRow></TableHeader>
                         <TableBody>
                           {queryResults.map((row, rowIndex) => (
-                            <TableRow key={rowIndex}>
-                              {Object.values(row).map((value, colIndex) => (
-                                <TableCell key={colIndex}>{String(value)}</TableCell>
-                              ))}
-                            </TableRow>
+                            <TableRow key={rowIndex}>{Object.values(row).map((value, colIndex) => (<TableCell key={colIndex}>{String(value)}</TableCell>))}</TableRow>
                           ))}
                         </TableBody>
                       </Table>
                     </div>
                   ) : (
-                    <div className="text-muted-foreground">No results to display.</div>
+                    <p className="text-muted-foreground">No results to display.</p>
                   )}
-                  <div className="flex gap-2 pt-4">
+                  <div className="flex gap-2 pt-4 justify-end">
                     <Button variant="outline" onClick={() => setStep("query")}>Back to Query</Button>
-                    <Button variant="ghost" onClick={() => { setStep("connect"); setDbConfig(null); setExtractedSchema(null); setManualQuery(""); setGeneratedSQL(""); setQueryResults([]); setRecommendations([]); setSelectedRecommendation(null); setSqlError(null); setResultsError(null); setSchemaError(null); setInsertError(null); }}>Start Over</Button>
+                    <Button variant="ghost" onClick={() => { setStep("connect"); setDbConfig(null); setExtractedSchema(null); setManualQuery(""); setGeneratedSQL(""); setQueryResults([]); setRecommendations([]); setSelectedRecommendation(null); }}>Start Over</Button>
                   </div>
                 </CardContent>
               </Card>

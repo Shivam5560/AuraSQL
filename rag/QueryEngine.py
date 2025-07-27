@@ -1,152 +1,135 @@
+# QueryEngine.py
+
 import os
 import json
-from dotenv import load_dotenv  # Import dotenv to load environment variables
+from dotenv import load_dotenv
 from llama_index.core import (
-    SimpleDirectoryReader,
     VectorStoreIndex,
     Settings,
     StorageContext,
     Document
 )
-import time
 from llama_index.core.node_parser import SentenceSplitter
-from llama_index.llms.groq import Groq
-import traceback
-from llama_index.vector_stores.pinecone import PineconeVectorStore
 from llama_index.core.query_engine import RetrieverQueryEngine
-import pinecone
-from llama_index.embeddings.cohere import CohereEmbedding
-from scratch.utils.system_prompt import system_prompt # Import the system prompt from utils
-from scratch.utils.clean_format import clean_json  # Import the clean_json function
-import logging  # Add logging for better debugging
+from llama_index.vector_stores.pinecone import PineconeVectorStore
+from scratch.utils.clean_format import clean_json
+import logging
+import traceback
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Load environment variables from a .env file
+# Load environment variables once, although they should be loaded by main.py
 load_dotenv()
 
-def insert_schema(schema_json, db_type, schema_name, table_name):
+def insert_schema(
+    schema_json: dict,
+    db_type: str,
+    schema_name: str,
+    table_name: str,
+    *,  # The asterisk forces subsequent arguments to be keyword-only
+    pinecone_index,
+    embed_model_doc,
+    query_engine_cache: dict
+):
+    """
+    Inserts a schema into Pinecone using pre-initialized clients.
+    """
     try:
         logging.info("Starting schema insertion process...")
-        # Convert schema JSON (dict) to a JSON string
-        schema_text = json.dumps(schema_json)
-        documents = [Document(text=schema_text)]  # Pass the JSON string to Document
-
-        pinecone_api_key = os.getenv("PINECONE_API_KEY")
-        pinecone_index_name = "tableindex"
-        namespace = f"{db_type}_{schema_name}_{table_name}"  # Use the namespace format {table_name}_{db_type}
-
-        pc = pinecone.Pinecone(api_key=pinecone_api_key)
-        pinecone_index = pc.Index(pinecone_index_name)
+        namespace = f"{db_type}_{schema_name}_{table_name}"
 
         # Check the number of namespaces
-        namespaces = pinecone_index.describe_index_stats()["namespaces"]
-        if len(namespaces) >= 100:
-            logging.warning("Namespace limit is close to 100. Removing all namespaces...")
-            for ns in namespaces.keys():
-                pinecone_index.delete(delete_all=True, namespace=ns)
-            logging.info("All namespaces cleared.")
+        stats = pinecone_index.describe_index_stats()
+        if len(stats["namespaces"]) >= 100:
+            logging.warning("Namespace limit is close to 100.")
+            # Consider a more sophisticated eviction strategy if needed
 
         # Check if the specific namespace exists before clearing
-        if namespace in namespaces:
+        if namespace in stats["namespaces"]:
             logging.info(f"Clearing vectors in namespace: {namespace}")
             pinecone_index.delete(delete_all=True, namespace=namespace)
-        else:
-            logging.info(f"Namespace '{namespace}' does not exist. Skipping clearing step.")
 
-        cohere_api_key = os.getenv("COHERE_API_KEY")
-        doc_embed_model = CohereEmbedding(
-            api_key=cohere_api_key,
-            model_name="embed-v4.0",
-            input_type="search_document",
-        )
-        Settings.embed_model = doc_embed_model
-        logging.info("Embeddings initialized successfully.")
+        # Use the pre-initialized document embedding model
+        Settings.embed_model = embed_model_doc
+        logging.info("Document embeddings model set.")
 
-        # Split documents into nodes
+        schema_text = json.dumps(schema_json)
+        documents = [Document(text=schema_text)]
+
         text_splitter = SentenceSplitter(chunk_size=1536, chunk_overlap=100)
-        logging.info("Splitting documents into nodes...")
         nodes = text_splitter.get_nodes_from_documents(documents)
 
-        vector_store = PineconeVectorStore(
-            pinecone_index=pinecone_index,
-            namespace=namespace  # Use the specific namespace
-        )
+        vector_store = PineconeVectorStore(pinecone_index=pinecone_index, namespace=namespace)
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
-
-        # Index the schema nodes with embeddings
-        index = VectorStoreIndex(
-            nodes=nodes,
-            storage_context=storage_context,
-            show_progress=True,
-        )
+        VectorStoreIndex(nodes=nodes, storage_context=storage_context)
+        
+        # If a query engine for this namespace exists in the cache, remove it
+        # so it gets recreated with the new schema on the next query.
+        if namespace in query_engine_cache:
+            del query_engine_cache[namespace]
+            logging.info(f"Removed outdated query engine from cache for namespace: {namespace}")
 
         logging.info(f"Schema added to Pinecone successfully under namespace: {namespace}")
         return True
 
-    except ValueError as ve:
-        logging.error(f"ValueError in insert_schema: {ve}")
-        traceback.print_exc()
-        return False
     except Exception as e:
         logging.error(f"Unexpected error in insert_schema: {e}")
         traceback.print_exc()
         return False
 
-def generate_query_engine(user_query, db_type, schema_name, table_name):
+async def generate_query_engine(
+    user_query: str,
+    db_type: str,
+    schema_name: str,
+    table_name: str,
+    *, # The asterisk forces subsequent arguments to be keyword-only
+    pinecone_index,
+    llm,
+    embed_model_query,
+    query_engine_cache: dict
+):
+    """
+    Generates a query response using a cached or new query engine.
+    Uses pre-initialized clients for performance.
+    """
     try:
-        logging.info("Initializing query engine...")
-        cohere_api_key = os.getenv("COHERE_API_KEY")
-        query_embed_model = CohereEmbedding(
-            api_key=cohere_api_key,
-            model_name="embed-v4.0",
-            input_type="search_query",
-        )
-        Settings.embed_model = query_embed_model
-        pinecone_api_key = os.getenv("PINECONE_API_KEY")
-        pinecone_index_name = "tableindex"
-        pc = pinecone.Pinecone(api_key=pinecone_api_key)
-        pinecone_index = pc.Index(pinecone_index_name)
-        key = os.getenv("GROQ_API_KEY")
-        llm = Groq(
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            api_key=key,
-            response_format={"type": "json_object"},
-            temperature=0.1,
-        )
+        namespace = f"{db_type}_{schema_name}_{table_name}"
 
-        # Set the system prompt for the LLM
-        Settings.llm = llm
+        # Check if a query engine for this namespace is already cached
+        if namespace in query_engine_cache:
+            logging.info(f"Using cached query engine for namespace: {namespace}")
+            query_engine = query_engine_cache[namespace]
+        else:
+            logging.info(f"Creating new query engine for namespace: {namespace}")
+            
+            # Use the pre-initialized clients passed as arguments
+            Settings.llm = llm
+            Settings.embed_model = embed_model_query
 
-        logging.info("Setting up Query Engine.")
+            vector_store = PineconeVectorStore(pinecone_index=pinecone_index, namespace=namespace)
+            index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
+            retriever = index.as_retriever(similarity_top_k=5)
+            
+            query_engine = RetrieverQueryEngine.from_args(
+                retriever=retriever,
+                llm=Settings.llm
+            )
+            
+            # Cache the newly created query engine for future use
+            query_engine_cache[namespace] = query_engine
+            logging.info(f"New query engine created and cached for namespace: {namespace}")
 
-        # Retrieve existing vectors
-        vector_store = PineconeVectorStore(
-            pinecone_index=pinecone_index,
-            namespace = f"{db_type}_{schema_name}_{table_name}"# Use the specific namespace
-        )
-        storage_context = StorageContext.from_defaults(vector_store=vector_store)
-        index = VectorStoreIndex.from_vector_store(vector_store)
-
-        # Setup query engine
-        retriever = index.as_retriever(similarity_top_k=5)
-        retriever.embed_model = query_embed_model
-        query_engine = RetrieverQueryEngine.from_args(
-            retriever=retriever,
-            llm=Settings.llm
-        )
-        
         logging.info("Executing query...")
-        response = query_engine.query(user_query)
+        response = await query_engine.aquery(user_query)
 
         logging.info("Query executed successfully.")
         logging.info(f"Response: {response}")
-        response = clean_json(response.response)  # Ensure the response is in the expected JSON format
-        print("Response cleaned and formatted successfully.")
-        del query_engine, retriever, index, storage_context, vector_store  # Clean up resources
-        logging.info("Resources cleaned up successfully.")
-        return response.strip()
+        
+        cleaned_response = clean_json(response.response)
+        logging.info("Response cleaned and formatted successfully.")
+        
+        return cleaned_response.strip()
 
     except Exception as e:
         logging.error(f"An error occurred in generate_query_engine: {e}")
