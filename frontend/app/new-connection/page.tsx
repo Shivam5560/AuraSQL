@@ -45,14 +45,26 @@ export default function NewConnectionPage() {
     setError(null)
 
     try {
-      // This part is largely handled by the DbConnectionForm itself now for saving
-      // For connecting, we just set the localStorage and redirect
-      localStorage.setItem('currentDbConfig', JSON.stringify(config))
-      router.push('/') // Redirect to the main query interface
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/connect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to connect to database.');
+      }
+
+      // If connection is successful, save to localStorage and redirect
+      localStorage.setItem('currentDbConfig', JSON.stringify(config));
+      router.push('/'); // Redirect to the main query interface
     } catch (err: any) {
-      setError(err.message || 'An unexpected error occurred.')
+      setError(err.message || 'An unexpected error occurred.');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
