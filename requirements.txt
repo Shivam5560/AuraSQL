@@ -1,0 +1,19 @@
+Flask
+llama-index-embeddings-huggingface
+llama-index
+llama-index-llms-groq
+scikit-learn
+groq==0.4.2
+google-genai
+numpy
+spacy
+gunicorn
+pinecone
+llama-index-embeddings-cohere
+llama-index-vector-stores-pinecone
+fastapi
+uvicorn
+psycopg2-binary  # PostgreSQL driver
+mysql-connector-python  # MySQL driver
+cx_Oracle  # Oracle driver
+pandas  # For handling schema details
