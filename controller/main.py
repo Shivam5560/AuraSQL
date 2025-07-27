@@ -73,7 +73,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://172.20.10.3:3000","https://txt2sql-git-master-shivam5560s-projects.vercel.app/"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://172.20.10.3:3000", "https://txt2sql-git-master-shivam5560s-projects.vercel.app/", "https://*.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -88,7 +88,7 @@ async def root():
     return {"message": "Text-to-SQL Server is running! 🚀"}
 
 # This endpoint is restored to its original implementation
-@app.post("/extract-schema")
+@app.post("/connect")
 async def extract_schema(request: Request):
     """Extract database schema information"""
     try:
