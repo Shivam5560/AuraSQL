@@ -27,3 +27,8 @@ build/
 
 # Pinecone API keys or sensitive files
 *.env
+# Frontend build files
+node_modules/
+dist/
+build/
+*.cache

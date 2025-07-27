@@ -69,7 +69,7 @@ export async function insertSchema(
   schemaDetails: ExtractedSchema
 ): Promise<ApiResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/insert-schema`, {
+    const response = await fetch(`${API_BASE_URL}/insert_schema`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -135,7 +135,7 @@ export async function generateQuery(
   naturalLanguageQuery: string
 ): Promise<ApiResponse<string>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/generate-query`, {
+    const response = await fetch(`${API_BASE_URL}/query`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -144,7 +144,7 @@ export async function generateQuery(
         db_type: dbType,
         table_name: tableName,
         schema_name: schemaName,
-        natural_language_query: naturalLanguageQuery,
+        query: naturalLanguageQuery,
       }),
     })
 
@@ -167,14 +167,14 @@ export async function executeQuery(
   sql: string
 ): Promise<ApiResponse<Record<string, any>[]>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/execute-query`, {
+    const response = await fetch(`${API_BASE_URL}/query_sql`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         ...config,
-        sql: sql,
+        query: sql,
       }),
     })
 

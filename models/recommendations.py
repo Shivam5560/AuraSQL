@@ -5,7 +5,7 @@ from scratch.utils.clean_format import clean_json
 import json
 import os
 def recommendations(db_type, schema_name, table_name):
-    recommendations = generate_query_engine(
+    recommendations =  generate_query_engine(
         user_query=prompt,
         db_type=db_type,
         schema_name=schema_name,

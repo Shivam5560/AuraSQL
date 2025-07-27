@@ -56,7 +56,7 @@ export function DbConnectionForm({ onSubmit, isLoading, error }: DbConnectionFor
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle className="text-2xl font-semibold">Database Connection</CardTitle>
-        <CardDescription>Enter your database connection details to extract schema.</CardDescription>
+        <CardDescription>Enter your database connection details to connect and register schema.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -104,7 +104,7 @@ export function DbConnectionForm({ onSubmit, isLoading, error }: DbConnectionFor
           <div className="col-span-full flex justify-end pt-4">
             <Button type="submit" disabled={isLoading} className="w-full md:w-auto">
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Extract Schema
+              Connect
             </Button>
           </div>
           {error && <p className="col-span-full text-sm text-red-500">{error}</p>}

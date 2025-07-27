@@ -141,9 +141,11 @@ def generate_query_engine(user_query, db_type, schema_name, table_name):
         response = query_engine.query(user_query)
 
         logging.info("Query executed successfully.")
-        # logging.info(f"Response: {response}")
+        logging.info(f"Response: {response}")
         response = clean_json(response.response)  # Ensure the response is in the expected JSON format
         print("Response cleaned and formatted successfully.")
+        del query_engine, retriever, index, storage_context, vector_store  # Clean up resources
+        logging.info("Resources cleaned up successfully.")
         return response.strip()
 
     except Exception as e:
