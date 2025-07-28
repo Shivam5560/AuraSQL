@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSupabaseClient, Session } from '@supabase/auth-helpers-react'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from "@/components/theme-toggle"
+import { useTheme } from "next-themes"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Loader2, PlusCircle, Edit, PlayCircle, Trash2 } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
@@ -129,7 +131,7 @@ export default function Dashboard() {
     const dailyStats: { [key: string]: { date: string; generated: number; executed: number; total: number; percentageRise?: number } } = {}
 
     history.forEach(item => {
-      const date = new Date(item.created_at).toLocaleDateString()
+      const date = new Date(item.created_at).toISOString().split('T')[0] // Use YYYY-MM-DD format
       if (!dailyStats[date]) {
         dailyStats[date] = { date, generated: 0, executed: 0, total: 0 }
       }
@@ -180,11 +182,18 @@ export default function Dashboard() {
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8">
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-4 right-4 flex gap-2">
         <Button onClick={async () => {
           await supabase.auth.signOut()
           router.push('/login')
         }}>Logout</Button>
+        <Button variant="outline" size="sm" onClick={() => router.push('/about?section=about-aurasql')}>
+          About AuraSQL
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => router.push('/about?section=developer-info')}>
+          Developer
+        </Button>
+        <ThemeToggle />
       </div>
       <div className="w-full max-w-5xl">
         <Card className="mb-6">

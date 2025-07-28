@@ -1,4 +1,7 @@
 {
+  "name": "aurasql",
+  "version": "0.1.0",
+  "private": true,
   "dependencies": {
     "@shadcn/ui": "^0.0.4",
     "framer-motion": "^12.23.9"

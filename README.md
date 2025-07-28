@@ -1,6 +1,6 @@
-# txt2sql
+# AuraSQL
 
-txt2sql is a web application that transforms natural language queries into SQL queries using AI-powered techniques. It provides a user-friendly interface to connect to databases, extract schemas, generate SQL queries, and execute them.
+AuraSQL is a web application that transforms natural language queries into SQL queries using AI-powered techniques. It provides a user-friendly interface to connect to databases, extract schemas, generate SQL queries, and execute them.
 
 ## Features
 
@@ -76,6 +76,34 @@ txt2sql is a web application that transforms natural language queries into SQL q
    - Use AI-generated recommendations.
    - Write custom natural language queries.
 4. **Execute Queries**: Run the generated SQL queries and view the results.
+
+## About AuraSQL
+
+AuraSQL is designed to simplify your database management and query generation. It leverages advanced AI capabilities to understand natural language queries and translate them into executable SQL, making database interactions more intuitive and efficient.
+
+Key features include:
+
+- Seamless database connection and schema extraction.
+- AI-powered natural language to SQL conversion.
+- Query history tracking and execution.
+- Intuitive dashboard for managing connections and reviewing activity.
+
+Our goal is to empower users, from data analysts to developers, to interact with their databases more effectively, reducing the need for deep SQL expertise and accelerating data-driven decision-making.
+
+## Developer
+
+### Shivam Sourav
+
+Associate Software Engineer at NRI Fintech India, passionate about creating tools that help professionals advance their careers through better resume presentation.
+
+**Current Role:** Associate Software Engineer at NRI Fintech India
+**Education:** B.Tech AI & Data Science, SMIT
+**Specialization:** AI, Machine Learning, Full-stack Development
+**Location:** Banka, Bihar, India
+
+**Links:**
+- [LinkedIn](https://www.linkedin.com/in/shivam-sourav-b889aa204/)
+- [GitHub](https://github.com/Shivam5560)
 
 ## API Endpoints
 
