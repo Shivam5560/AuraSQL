@@ -9,31 +9,23 @@ export async function middleware(req: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession()
 
-  console.log('Middleware: Path -', req.nextUrl.pathname);
-  console.log('Middleware: Request Cookies -', req.cookies);
-  console.log('Middleware: Session -', session);
-
   const protectedPaths = ['/dashboard', '/new-connection', '/query-interface']
   const authPaths = ['/login', '/signup']
 
-  // TEMPORARILY COMMENTED OUT FOR DEBUGGING
   // Redirect unauthenticated users from protected routes
-  // if (!session && protectedPaths.some(path => req.nextUrl.pathname.startsWith(path))) {
-  //   console.log(`Middleware: Unauthenticated user trying to access protected path ${req.nextUrl.pathname}. Redirecting to /login`)
-  //   const redirectUrl = req.nextUrl.clone()
-  //   redirectUrl.pathname = '/login'
-  //   redirectUrl.searchParams.set(`redirectedFrom`, req.nextUrl.pathname)
-  //   return NextResponse.redirect(redirectUrl)
-  // }
+  if (!session && protectedPaths.some(path => req.nextUrl.pathname.startsWith(path))) {
+    const redirectUrl = req.nextUrl.clone()
+    redirectUrl.pathname = '/login'
+    redirectUrl.searchParams.set(`redirectedFrom`, req.nextUrl.pathname)
+    return NextResponse.redirect(redirectUrl)
+  }
 
-  // TEMPORARILY COMMENTED OUT FOR DEBUGGING
   // Redirect authenticated users from auth routes to dashboard
-  // if (session && authPaths.some(path => req.nextUrl.pathname.startsWith(path))) {
-  //   console.log(`Middleware: Authenticated user trying to access auth path ${req.nextUrl.pathname}. Redirecting to /dashboard`)
-  //   const redirectUrl = req.nextUrl.clone()
-  //   redirectUrl.pathname = '/dashboard'
-  //   return NextResponse.redirect(redirectUrl)
-  // }
+  if (session && authPaths.some(path => req.nextUrl.pathname.startsWith(path))) {
+    const redirectUrl = req.nextUrl.clone()
+    redirectUrl.pathname = '/dashboard'
+    return NextResponse.redirect(redirectUrl)
+  }
 
   return res
 }

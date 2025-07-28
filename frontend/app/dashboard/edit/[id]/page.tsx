@@ -137,7 +137,7 @@ export default function EditConnectionPage({ params }: { params: { id: string } 
     }
 
     alert('Connection updated successfully!')
-    router.push('/dashboard')
+    window.location.href = '/dashboard'
   }
 
   if (loadingSession || loadingConnection) {
