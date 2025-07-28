@@ -73,7 +73,7 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://172.20.10.3:3000", "https://txt2sql-git-master-shivam5560s-projects.vercel.app/", "https://*.vercel.app"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://172.20.10.3:3000", "https://txt2sql-git-master-shivam5560s-projects.vercel.app/", "https://*.vercel.app", "https://txt2sql-gamma.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
