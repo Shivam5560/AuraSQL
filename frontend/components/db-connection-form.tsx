@@ -117,7 +117,7 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
             <Label htmlFor="savedConnection">Saved Connections</Label>
             <Select
               value={selectedConnectionId || ""}
-              onValueChange={(value) => {
+              onValueChange={async (value) => {
                 setSelectedConnectionId(value)
                 if (value === "new") {
                   setDbType("postgresql")
