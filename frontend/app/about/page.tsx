@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { DeveloperInfo } from '@/components/developer-info';
 
-export default function AboutPage() {
+function AboutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const section = searchParams.get('section');
@@ -54,5 +54,13 @@ export default function AboutPage() {
         </Card>
       </div>
     </main>
+  );
+}
+
+export default function AboutPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AboutContent />
+    </Suspense>
   );
 }
