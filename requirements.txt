@@ -1,12 +1,11 @@
 Flask
-llama-index-embeddings-huggingface
 llama-index
 llama-index-llms-groq
 scikit-learn
 groq==0.4.2
 google-genai
 numpy
-spacy
+
 gunicorn
 pinecone
 llama-index-embeddings-cohere
