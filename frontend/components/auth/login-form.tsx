@@ -31,14 +31,11 @@ export function LoginForm() {
       password,
     })
     if (error) {
-      console.error('Supabase login error:', error)
-    }
-
-    if (error) {
       setError(error.message)
+      console.error('Supabase login error:', error)
     } else {
+      console.log('Login successful, redirecting to dashboard...')
       router.push('/dashboard')
-      console.log('Redirecting to home page...')
     }
     setLoading(false)
   }
