@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSupabaseClient, Session } from '@supabase/auth-helpers-react'
 import { Button } from '@/components/ui/button'
@@ -10,8 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, PlusCircle, Edit, PlayCircle, Trash2 } from 'lucide-react'
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChartHistory } from '@/components/ui/chart-history'
-import { MiniChartCard } from '@/components/ui/mini-chart-card'
+import { SectionCards } from '@/components/section-cards'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart'
 
 interface QueryHistoryItem {
@@ -31,8 +32,37 @@ export default function Dashboard() {
   const [loadingSession, setLoadingSession] = useState(true)
   const [connections, setConnections] = useState<DbConfig[]>([])
   const [loadingConnections, setLoadingConnections] = useState(true)
-  const [queryHistory, setQueryHistory] = useState<any[]>([])
+  const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)
+
+  // State for sorting and filtering
+  const [sortBy, setSortBy] = useState<keyof QueryHistoryItem>('created_at')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [filterStatus, setFilterStatus] = useState<'all' | 'generated' | 'executed'>('all')
+
+  // Filter and sort history
+  const filteredAndSortedHistory = useMemo(() => {
+    let filtered = queryHistory
+
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter(item => item.status === filterStatus)
+    }
+
+    const sorted = [...filtered].sort((a, b) => {
+      const aValue = a[sortBy]
+      const bValue = b[sortBy]
+
+      if (sortBy === 'created_at') {
+        const dateA = new Date(aValue as string).getTime()
+        const dateB = new Date(bValue as string).getTime()
+        return sortOrder === 'asc' ? dateA - dateB : dateB - dateA
+      } else if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortOrder === 'asc' ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
+      }
+      return 0
+    })
+    return sorted
+  }, [queryHistory, sortBy, sortOrder, filterStatus])
 
   useEffect(() => {
     const getSession = async () => {
@@ -181,83 +211,59 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8">
-      <div className="absolute top-4 right-4 flex gap-2">
-        <Button onClick={async () => {
-          await supabase.auth.signOut()
-          router.push('/login')
-        }}>Logout</Button>
-        <Button variant="outline" size="sm" onClick={() => router.push('/about?section=about-aurasql')}>
-          About AuraSQL
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => router.push('/about?section=developer-info')}>
-          Developer
-        </Button>
-        <ThemeToggle />
-      </div>
-      <div className="w-full max-w-5xl">
-        <Card className="mb-6">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-semibold">Your Saved Connections</CardTitle>
-            <Button variant="outline" size="sm" onClick={() => {
-              router.push('/new-connection')
-            }}>
-              <PlusCircle className="mr-2 h-4 w-4" /> New Connection
-            </Button>
-          </CardHeader>
-          <CardContent>
-            {connections.length === 0 ? (
-              <p className="text-muted-foreground">No saved connections yet. Click "New Connection" to add one.</p>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {connections.map((conn) => (
-                  <Card key={conn.id}>
-                    <CardHeader>
-                      <CardTitle>{String(conn.name ?? '')}</CardTitle>
-                      <CardDescription>{conn.db_type} - {String(conn.database ?? '')}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex justify-between items-center">
-                      <Button size="sm" onClick={() => handleConnect(conn)}>
-                        <PlayCircle className="mr-2 h-4 w-4" /> Connect
-                      </Button>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="icon" onClick={() => handleEdit(conn.id)}>
-                          <Edit className="h-4 w-4" />
+    <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8 pt-16">
+      <div className="w-full max-w-7xl space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Saved Connections Section */}
+          <Card className="aura-glow-hover lg:col-span-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-2xl font-semibold">Your Saved Connections</CardTitle>
+              <Button variant="outline" size="sm" onClick={() => {
+                router.push('/new-connection')
+              }}>
+                <PlusCircle className="mr-2 h-4 w-4" /> New Connection
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {connections.length === 0 ? (
+                <p className="text-muted-foreground">No saved connections yet. Click "New Connection" to add one.</p>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {connections.map((conn) => (
+                    <Card key={conn.id} className="aura-glow-hover">
+                      <CardHeader>
+                        <CardTitle>{String(conn.name ?? '')}</CardTitle>
+                        <CardDescription>{conn.db_type} - {String(conn.database ?? '')}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex justify-between items-center">
+                        <Button size="sm" onClick={() => handleConnect(conn)}>
+                          <PlayCircle className="mr-2 h-4 w-4" /> Connect
                         </Button>
-                        <Button variant="destructive" size="icon" onClick={() => handleDelete(conn.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                        <div className="flex gap-2">
+                          <Button variant="outline" size="icon" onClick={() => handleEdit(conn.id)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="destructive" size="icon" onClick={() => handleDelete(conn.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <MiniChartCard
-            title="Total Generated Queries"
-            total={queryHistory.filter(item => item.status === 'generated' || item.status === 'executed').length}
-            data={getDailyStats(queryHistory).map(d => ({ date: d.date, value: d.generated }))}
-            percentageChange={queryHistory.length > 1 ? (getDailyStats(queryHistory)[getDailyStats(queryHistory).length - 1].percentageRise ?? 0) : 0}
-            dataKey="value"
-            strokeColor="#8884d8"
-            fillColor="#8884d8"
-          />
-          <MiniChartCard
-            title="Total Executed Queries"
-            total={queryHistory.filter(item => item.status === 'executed').length}
-            data={getDailyStats(queryHistory).map(d => ({ date: d.date, value: d.executed }))}
-            percentageChange={queryHistory.length > 1 ? (getDailyStats(queryHistory)[getDailyStats(queryHistory).length - 1].percentageRise ?? 0) : 0}
-            dataKey="value"
-            strokeColor="#82ca9d"
-            fillColor="#82ca9d"
+          {/* Mini Charts Section */}
+          <SectionCards
+            totalGeneratedQueries={queryHistory.filter(item => item.status === 'generated' || item.status === 'executed').length}
+            totalExecutedQueries={queryHistory.filter(item => item.status === 'executed').length}
           />
         </div>
 
-        <Card className="mb-6">
+        {/* Daily Query Activity Chart */}
+        <Card className="aura-glow-hover">
           <CardHeader>
             <CardTitle className="text-2xl font-semibold">Daily Query Activity</CardTitle>
             <CardDescription>Number of queries generated/executed per day.</CardDescription>
@@ -267,16 +273,50 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* Query History Table */}
+        <Card className="aura-glow-hover">
           <CardHeader>
             <CardTitle className="text-2xl font-semibold">Query History</CardTitle>
             <CardDescription>Review your past generated and executed SQL queries.</CardDescription>
           </CardHeader>
           <CardContent>
-            {queryHistory.length === 0 ? (
+            <div className="flex flex-col sm:flex-row gap-4 mb-4">
+              <Select value={sortBy} onValueChange={(value) => setSortBy(value as keyof QueryHistoryItem)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">Date</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                  <SelectItem value="natural_language_query">Query</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as 'asc' | 'desc')}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Sort Order" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Ascending</SelectItem>
+                  <SelectItem value="desc">Descending</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as 'all' | 'generated' | 'executed')}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filter Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="generated">Generated</SelectItem>
+                  <SelectItem value="executed">Executed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {filteredAndSortedHistory.length === 0 ? (
               <p className="text-muted-foreground">No query history yet. Generate some SQL queries on the main page!</p>
             ) : (
-              <div className="overflow-x-auto rounded-md border">
+              <div className="overflow-x-auto rounded-md border aura-glow">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -287,16 +327,16 @@ export default function Dashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {queryHistory.map((historyItem) => (
+                    {filteredAndSortedHistory.map((historyItem) => (
                       <TableRow key={historyItem.id}>
-                        <TableCell>{new Date(historyItem.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <Badge className={`text-xs ${historyItem.status === 'executed' ? 'bg-gray-700 text-white' : 'bg-gray-400 text-black'}`}>
+                        <TableCell className="whitespace-normal">{new Date(historyItem.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell className="whitespace-normal">
+                          <Badge className={`text-xs ${historyItem.status === 'executed' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
                             {historyItem.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>{historyItem.natural_language_query}</TableCell>
-                        <TableCell className="font-mono text-xs">{historyItem.generated_sql}</TableCell>
+                        <TableCell className="whitespace-normal">{historyItem.natural_language_query}</TableCell>
+                        <TableCell className="font-mono text-xs whitespace-normal">{historyItem.generated_sql}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

@@ -1,0 +1,104 @@
+<svg viewBox="0 0 350 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Gradient for the aura effect (grayscale) -->
+    <radialGradient id="auraGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:hsl(0 0% 95%);stop-opacity:0.8"/>
+      <stop offset="40%" style="stop-color:hsl(0 0% 80%);stop-opacity:0.6"/>
+      <stop offset="80%" style="stop-color:hsl(0 0% 50%);stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:hsl(0 0% 10%);stop-opacity:0.1"/>
+    </radialGradient>
+    
+    <!-- Gradient for the database cylinder (darker grayscale) -->
+    <linearGradient id="dbGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:hsl(0 0% 5%)"/>
+      <stop offset="100%" style="stop-color:hsl(0 0% 20%)"/>
+    </linearGradient>
+    
+    <!-- Glow effect -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge> 
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Pulsing animation -->
+    <animate id="pulse" attributeName="r" values="45;55;45" dur="3s" repeatCount="indefinite"/>
+  </defs>
+  
+  <!-- Background circle with aura effect -->
+  <circle cx="100" cy="100" r="50" fill="url(#auraGradient)" opacity="0.7">
+    <animate attributeName="r" values="45;55;45" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Outer glow rings -->
+  <circle cx="100" cy="100" r="60" fill="none" stroke="hsl(0 0% 50%)" stroke-width="1" opacity="0.3">
+    <animate attributeName="r" values="55;65;55" dur="4s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="100" cy="100" r="70" fill="none" stroke="hsl(0 0% 80%)" stroke-width="0.5" opacity="0.2">
+    <animate attributeName="r" values="65;75;65" dur="5s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Main database cylinder structure -->
+  <g filter="url(#glow)">
+    <!-- Database cylinder body -->
+    <rect x="75" y="70" width="50" height="60" rx="5" fill="url(#dbGradient)" stroke="hsl(0 0% 50%)" stroke-width="2"/>
+    
+    <!-- Database cylinder top ellipse -->
+    <ellipse cx="100" cy="70" rx="25" ry="8" fill="hsl(0 0% 30%)" stroke="hsl(0 0% 50%)" stroke-width="2"/>
+    
+    <!-- Database cylinder bottom ellipse -->
+    <ellipse cx="100" cy="130" rx="25" ry="8" fill="hsl(0 0% 15%)" stroke="hsl(0 0% 50%)" stroke-width="2"/>
+    
+    <!-- Database data layers -->
+    <ellipse cx="100" cy="85" rx="20" ry="3" fill="hsl(0 0% 50%)" opacity="0.6"/>
+    <ellipse cx="100" cy="100" rx="20" ry="3" fill="hsl(0 0% 65%)" opacity="0.6"/>
+    <ellipse cx="100" cy="115" rx="20" ry="3" fill="hsl(0 0% 80%)" opacity="0.6"/>
+  </g>
+  
+  <!-- AI/Query representation - flowing particles -->
+  <g opacity="0.8">
+    <!-- Flowing data particles -->
+    <circle cx="60" cy="90" r="2" fill="hsl(0 0% 50%)">
+      <animateTransform attributeName="transform" type="translate" values="0,0; 80,0; 0,0" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="140" cy="110" r="2" fill="hsl(0 0% 65%)">
+      <animateTransform attributeName="transform" type="translate" values="0,0; -80,0; 0,0" dur="2.5s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="100" cy="50" r="1.5" fill="hsl(0 0% 80%)">
+      <animateTransform attributeName="transform" type="translate" values="0,0; 0,80; 0,0" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <circle cx="100" cy="150" r="1.5" fill="hsl(0 0% 95%)">
+      <animateTransform attributeName="transform" type="translate" values="0,0; 0,-80; 0,0" dur="2.8s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  
+  <!-- SQL brackets representing query structure -->
+  <g stroke="hsl(0 0% 50%)" stroke-width="3" fill="none" opacity="0.7">
+    <path d="M 65 60 Q 55 65 55 75 L 55 85 Q 55 95 65 100"/>
+    <path d="M 135 60 Q 145 65 145 75 L 145 85 Q 145 95 135 100"/>
+    <path d="M 65 140 Q 55 135 55 125 L 55 115 Q 55 105 65 100"/>
+    <path d="M 135 140 Q 145 135 145 125 L 145 115 Q 145 105 135 100"/>
+  </g>
+  
+  <!-- Central AI spark -->
+  <g transform="translate(100,100)">
+    <polygon points="0,-8 2,-2 8,0 2,2 0,8 -2,2 -8,0 -2,-2" fill="hsl(0 0% 95%)" opacity="0.9">
+      <animateTransform attributeName="transform" type="rotate" values="0;360" dur="4s" repeatCount="indefinite"/>
+    </polygon>
+  </g>
+  
+  <!-- AuraSQL Text -->
+  <g transform="translate(200, 105)">
+    <!-- Aura text -->
+    <text x="0" y="-10" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="url(#auraGradient)" filter="url(#glow)">Aura</text>
+    <!-- SQL text -->
+    <text x="0" y="20" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="hsl(0 0% 20%)">SQL</text>
+    
+    <!-- Subtle underline animation -->
+    <line x1="0" y1="25" x2="80" y2="25" stroke="hsl(0 0% 65%)" stroke-width="2" opacity="0.6">
+      <animate attributeName="stroke-dasharray" values="0,80;80,0;0,80" dur="3s" repeatCount="indefinite"/>
+    </line>
+  </g>
+</svg>

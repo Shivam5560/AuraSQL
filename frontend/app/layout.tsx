@@ -1,16 +1,12 @@
+'use client'
 import SupabaseProvider from '@/components/supabase-provider'
-import type { Metadata } from "next"
+
 import { Inter } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
-import { ThemeToggle } from "@/components/theme-toggle"
 import "./globals.css"
+import LayoutContent from '@/components/layout-content'
 
 const inter = Inter({ subsets: ["latin"] })
-
-export const metadata: Metadata = {
-  title: "Text-to-SQL AI Assistant",
-  description: "Connect to your database, extract schema, generate SQL queries with AI, and execute them.",
-}
 
 export default function RootLayout({
   children,
@@ -19,7 +15,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-gradient-subtle min-h-screen`}>
         <SupabaseProvider>
           <ThemeProvider
             attribute="class"
@@ -27,10 +23,7 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            
-            <div id="root">
-              {children}
-            </div>
+            <LayoutContent>{children}</LayoutContent>
           </ThemeProvider>
         </SupabaseProvider>
       </body>

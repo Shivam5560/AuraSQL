@@ -21,11 +21,8 @@ function AboutContent() {
   }, [section]);
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8">
-      <div className="absolute top-4 left-4">
-        <Button onClick={() => router.back()}>Back to Dashboard</Button>
-      </div>
-      <div className="w-full max-w-3xl space-y-8">
+    <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8 pt-16">
+      <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card id="about-aurasql">
           <CardHeader>
             <CardTitle className="text-3xl font-bold">About AuraSQL</CardTitle>

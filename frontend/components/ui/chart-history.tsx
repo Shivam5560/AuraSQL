@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts"
 
 import {
   CardContent,
@@ -13,6 +13,8 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from "@/components/ui/chart"
+
+import { useTheme } from "next-themes"
 
 interface DailyStatsItem {
   date: string;
@@ -27,28 +29,22 @@ interface ChartHistoryProps {
 }
 
 export function ChartHistory({ data }: ChartHistoryProps) {
+  const { theme } = useTheme();
+  const generatedColor = theme === 'dark' ? 'hsl(var(--chart-generated-dark))' : 'hsl(var(--chart-generated-light))';
+  const executedColor = theme === 'dark' ? 'hsl(var(--chart-executed-dark))' : 'hsl(var(--chart-executed-light))';
+
   return (
-    <>
+    <React.Fragment>
       <ChartContainer
         config={{
-          generated: { label: 'Generated', color: 'hsl(var(--foreground))' },
-          executed: { label: 'Executed', color: 'hsl(var(--muted-foreground))' },
+          generated: { label: 'Generated', color: generatedColor },
+          executed: { label: 'Executed', color: executedColor },
         }}
         className="aspect-auto h-[250px] w-full"
       >
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id="fillGenerated" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-generated)" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="var(--color-generated)" stopOpacity={0.1} />
-            </linearGradient>
-            <linearGradient id="fillExecuted" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-executed)" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="var(--color-executed)" stopOpacity={0.1} />
-            </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} />
+          <BarChart data={data}>
+            <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
             <XAxis
               dataKey="date"
               tickLine={false}
@@ -63,9 +59,9 @@ export function ChartHistory({ data }: ChartHistoryProps) {
                 })
               }}
             />
-            <YAxis />
+            <YAxis stroke="hsl(var(--foreground))" />
             <ChartTooltip
-              cursor={false}
+              cursor={{ fill: 'hsl(var(--muted))' }}
               content={({ active, payload }) => (
                 <ChartTooltipContent
                   active={active}
@@ -80,24 +76,20 @@ export function ChartHistory({ data }: ChartHistoryProps) {
                 />
               )}
             />
-            <Area
+            <Bar
               dataKey="generated"
-              type="monotone"
-              fill="url(#fillGenerated)"
-              stroke="var(--color-generated)"
+              fill={generatedColor}
               stackId="a"
-              dot={true}
+              radius={[4, 4, 0, 0]}
             />
-            <Area
+            <Bar
               dataKey="executed"
-              type="monotone"
-              fill="url(#fillExecuted)"
-              stroke="var(--color-executed)"
+              fill={executedColor}
               stackId="a"
-              dot={true}
+              radius={[4, 4, 0, 0]}
             />
             <ChartLegend content={({ payload }) => <ChartLegendContent payload={payload} />} />
-          </AreaChart>
+          </BarChart>
         </ResponsiveContainer>
       </ChartContainer>
       {data.length > 1 && data[data.length - 1].percentageRise !== undefined && (
@@ -108,6 +100,6 @@ export function ChartHistory({ data }: ChartHistoryProps) {
           </p>
         </div>
       )}
-    </>
+    </React.Fragment>
   );
 }

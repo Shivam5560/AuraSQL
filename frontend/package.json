@@ -18,8 +18,13 @@
     "@supabase/auth-ui-shared": "^0.1.8",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.52.1",
+    "@tabler/icons-react": "^3.34.1",
+    "@tsparticles/engine": "^3.8.1",
+    "@tsparticles/react": "^3.0.0",
+    "@tsparticles/slim": "^3.8.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^11.0.0",
     "lucide-react": "^0.526.0",
     "next": "14.2.5",
     "next-themes": "^0.3.0",
@@ -27,8 +32,7 @@
     "react-dom": "^18.2.0",
     "recharts": "^3.1.0",
     "tailwind-merge": "^3.3.1",
-    "tailwindcss-animate": "^1.0.7",
-    "framer-motion": "^11.0.0"
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@types/node": "^20",
