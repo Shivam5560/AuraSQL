@@ -40,7 +40,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export async function extractSchema(config: DbConfig): Promise<ApiResponse<ExtractedSchema>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/extract-schema`, {
+    const response = await fetch(`${API_BASE_URL}/connect`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
