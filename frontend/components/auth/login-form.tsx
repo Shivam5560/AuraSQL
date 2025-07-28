@@ -35,7 +35,8 @@ export function LoginForm() {
       console.error('Supabase login error:', error)
     } else {
       console.log('Login successful, redirecting to dashboard...')
-      router.push('/dashboard')
+      router.replace('/dashboard')
+      console.log('router.replace called for /dashboard');
     }
     setLoading(false)
   }
