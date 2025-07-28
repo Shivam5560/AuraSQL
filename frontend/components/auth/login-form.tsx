@@ -34,7 +34,8 @@ export function LoginForm() {
       setError(error.message)
       console.error('Supabase login error:', error)
     } else {
-      console.log('Login successful, redirecting to dashboard...')
+      console.log('Login successful, refreshing session and redirecting to dashboard...')
+      await supabase.auth.refreshSession()
       router.replace('/dashboard')
       console.log('router.replace called for /dashboard');
     }
