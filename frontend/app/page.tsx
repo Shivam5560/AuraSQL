@@ -1,13 +1,77 @@
 'use client'
 
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ParticlesBackground } from '@/components/particles-background'
 import Image from 'next/image'
+import { Loader2 } from 'lucide-react';
+import { DbConfig, ExtractedSchema } from '@/lib/types';
+import { extractSchema } from '@/lib/api';
+import { QueryInterface } from '@/components/query-interface';
 
 export default function LandingPage() {
+  const [dbConfig, setDbConfig] = useState<DbConfig | null>(null);
+  const [extractedSchema, setExtractedSchema] = useState<ExtractedSchema | null>(null);
+  const [loadingDbConfig, setLoadingDbConfig] = useState(true);
+  const [loadingSchema, setLoadingSchema] = useState(false);
+
+  useEffect(() => {
+    const storedConfig = localStorage.getItem('currentDbConfig');
+    if (storedConfig) {
+      setDbConfig(JSON.parse(storedConfig));
+    }
+    setLoadingDbConfig(false);
+  }, []);
+
+  useEffect(() => {
+    const fetchSchema = async () => {
+      if (!dbConfig) return;
+      setLoadingSchema(true);
+      try {
+        const result = await extractSchema(dbConfig);
+        if (result.success && result.schema) {
+          setExtractedSchema(result.schema);
+        } else {
+          console.error("Failed to extract schema:", result.detail);
+          // Clear invalid config and show landing page
+          localStorage.removeItem('currentDbConfig');
+          setDbConfig(null);
+        }
+      } catch (error) {
+        console.error("Error fetching schema:", error);
+        localStorage.removeItem('currentDbConfig');
+        setDbConfig(null);
+      } finally {
+        setLoadingSchema(false);
+      }
+    };
+
+    if (dbConfig) {
+      fetchSchema();
+    }
+  }, [dbConfig]);
+
+  if (loadingDbConfig || (dbConfig && loadingSchema)) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8">
+        <Loader2 className="h-10 w-10 animate-spin" />
+        <p className="mt-4 text-lg">Loading database schema...</p>
+      </main>
+    );
+  }
+
+  if (dbConfig && extractedSchema) {
+    return (
+      <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8 pt-16">
+        <div className="w-full max-w-7xl space-y-8">
+          <QueryInterface dbConfig={dbConfig} extractedSchema={extractedSchema} />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-background text-foreground">
       <video

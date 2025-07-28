@@ -10,3 +10,20 @@ export interface DbConfig {
   schema_name: string
   table_name: string
 }
+
+export interface SchemaColumn {
+  table_name: string
+  column_name: string
+  data_type: string
+  is_nullable: string
+  character_maximum_length: number | null
+  numeric_precision: number | null
+  numeric_scale: number | null
+  constraint_type: string | null
+  column_default: string | null
+  db_type: string
+}
+
+export interface ExtractedSchema {
+  [tableName: string]: SchemaColumn[]
+}
