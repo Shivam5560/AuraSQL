@@ -191,3 +191,70 @@ export async function executeQuery(
     }
   }
 }
+
+export async function logGeneratedQuery(
+  userId: string,
+  naturalLanguageQuery: string,
+  generatedSql: string
+): Promise<ApiResponse> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/log_query_generated`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        natural_language_query: naturalLanguageQuery,
+        generated_sql: generatedSql,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Error logging generated query:', error)
+    return {
+      success: false,
+      detail: error instanceof Error ? error.message : 'Unknown error occurred'
+    }
+  }
+}
+
+export async function logExecutedQuery(
+  queryId: string,
+  userId: string,
+  naturalLanguageQuery: string,
+  generatedSql: string
+): Promise<ApiResponse<{ queryId: string }>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/log_query_executed`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query_id: queryId,
+        user_id: userId,
+        natural_language_query: naturalLanguageQuery,
+        generated_sql: generatedSql,
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const data = await response.json();
+    return { success: data.success, queryId: data.query_id, detail: data.detail };
+  } catch (error) {
+    console.error('Error logging executed query:', error)
+    return {
+      success: false,
+      detail: error instanceof Error ? error.message : 'Unknown error occurred'
+    }
+  }
+}

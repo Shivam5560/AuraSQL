@@ -125,6 +125,15 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
       )
       if (result.success && result.sql) {
         setGeneratedSql(result.sql)
+        setStep("generatedSqlView")
+        if (userId) {
+          const logResult = await logGeneratedQuery(userId, queryInput, result.sql)
+          if (logResult.success && logResult.queryId) {
+            setGeneratedQueryId(logResult.queryId)
+          } else {
+            console.error("Failed to log generated query:", logResult.detail)
+          }
+        }
       } else {
         setError(result.detail || "Failed to generate SQL query.")
       }
@@ -147,6 +156,12 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
       const result = await executeQuery(dbConfig, generatedSql)
       if (result.success && result.data) {
         setQueryResults(result.data)
+        if (userId) {
+          // Assuming you want to log the last generated query as executed
+          // You might need to fetch the queryId from the generated query log if you want to update a specific entry
+          // For now, we'll log a new executed entry.
+          logExecutedQuery(generatedQueryId, userId, naturalLanguageQuery, generatedSql)
+        }
       } else {
         setError(result.detail || "Failed to execute SQL query.")
       }
@@ -154,6 +169,7 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
       setError(`Error executing query: ${err.message}`)
     } finally {
       setIsLoadingQueryExecution(false)
+      setStep("results")
     }
   }
 
@@ -163,6 +179,7 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
     setNaturalLanguageQuery("")
     setError(null)
     setSelectedRecommendations([])
+    setGeneratedQueryId(null)
   }
 
   const startOver = () => {
@@ -350,6 +367,73 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
             </Card>
           )}
         </>
+      )}
+
+      {step === "generatedSqlView" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl font-semibold">Generated SQL Query</CardTitle>
+            <CardDescription>Review the generated SQL query before execution.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea value={generatedSql} readOnly className="min-h-[120px] font-mono bg-muted/30" />
+            <div className="flex gap-2">
+              <Button onClick={handleExecuteQuery} disabled={isLoadingQueryExecution} className="flex-1">
+                {isLoadingQueryExecution && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Execute SQL Query
+              </Button>
+              <Button variant="outline" onClick={() => setStep("query")}>
+                Edit Natural Language Query
+              </Button>
+            </div>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+          </CardContent>
+        </Card>
+      )}
+
+      {step === "results" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl font-semibold">Query Results</CardTitle>
+            <CardDescription>Results from your executed SQL query.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {queryResults.length > 0 ? (
+              <div className="overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      {Object.keys(queryResults[0]).map((key) => (
+                        <TableHead key={key}>{key}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {queryResults.map((row, rowIndex) => (
+                      <TableRow key={rowIndex}>
+                        {Object.values(row).map((value, colIndex) => (
+                          <TableCell key={colIndex}>
+                            {value === null || value === undefined ? 'NULL' : String(value)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-muted-foreground">No results found for the executed query.</p>
+            )}
+            <div className="flex gap-2 pt-4">
+              <Button variant="outline" onClick={clearAll}>
+                Clear Results
+              </Button>
+              <Button variant="ghost" onClick={startOver}>
+                Start Over
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
