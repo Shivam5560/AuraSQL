@@ -36,8 +36,8 @@ export function LoginForm() {
     } else {
       console.log('Login successful, refreshing session and redirecting to dashboard...')
       await supabase.auth.refreshSession()
-      router.replace('/dashboard')
-      console.log('router.replace called for /dashboard');
+      window.location.href = '/dashboard'
+      console.log('window.location.href called for /dashboard');
     }
     setLoading(false)
   }
