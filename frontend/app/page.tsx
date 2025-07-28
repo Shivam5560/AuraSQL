@@ -49,8 +49,7 @@ export default function Home() {
   const [dbConfig, setDbConfig] = useState<DbConfig | null>(null)
   const [step, setStep] = useState<Step>("connect")
 
-  const [passwordInput, setPasswordInput] = useState('')
-  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false)
+  
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -59,12 +58,7 @@ export default function Home() {
         const parsedConfig = JSON.parse(savedConfig)
         if (parsedConfig.db_type && parsedConfig.ip && parsedConfig.port && parsedConfig.username && parsedConfig.database && parsedConfig.schema_name && parsedConfig.table_name) {
           setDbConfig(parsedConfig)
-          if (!parsedConfig.password) {
-            setShowPasswordPrompt(true)
-            setStep("connect") // Stay on connect step to show password prompt
-          } else {
-            setStep("schema") // Proceed to schema if password is present
-          }
+          setStep("schema") // Proceed to schema if password is present
         } else {
           localStorage.removeItem('currentDbConfig') // Clear incomplete config
           setStep("connect")
@@ -79,7 +73,7 @@ export default function Home() {
   const [schemaError, setSchemaError] = useState<string | null>(null)
   const [insertLoading, setInsertLoading] = useState(false)
   const [insertError, setInsertError] = useState<string | null>(null)
-  const [queryMode, setQueryMode] = useState<QueryMode>("recommendations")
+  const [queryMode, setQueryMode] = useState<QueryMode>("manual")
   const [recommendations, setRecommendations] = useState<string[]>([])
   const [recommendationsLoading, setRecommendationsLoading] = useState(false)
   const [recommendationsError, setRecommendationsError] = useState<string | null>(null)
@@ -109,15 +103,7 @@ export default function Home() {
 
   const { setTheme, theme } = useTheme()
 
-    const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!dbConfig) return
-
-    const configWithPassword = { ...dbConfig, password: passwordInput }
-    setDbConfig(configWithPassword)
-    setShowPasswordPrompt(false)
-    await handleExtractSchema(configWithPassword)
-  }
+    
 
   // Step 1: Connect (extract-schema)
   const handleExtractSchema = async (config: DbConfig) => {
@@ -327,39 +313,7 @@ export default function Home() {
         <AnimatePresence mode="wait">
           {step === "connect" && (
             <motion.div key="connect" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }}>
-              {showPasswordPrompt && dbConfig ? (
-                <Card className="w-full max-w-md mx-auto">
-                  <CardHeader>
-                    <CardTitle>Enter Password for {dbConfig.name || 'Connection'}</CardTitle>
-                    <CardDescription>Please provide the password to connect to your database.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="password">Password</Label>
-                        <Input
-                          id="password"
-                          type="password"
-                          value={passwordInput}
-                          onChange={(e) => setPasswordInput(e.target.value)}
-                          required
-                        />
-                      </div>
-                      <Button
-                        type="submit"
-                        disabled={schemaLoading}
-                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
-                      >
-                        {schemaLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Connect
-                      </Button>
-                      {schemaError && <p className="text-sm text-destructive">{schemaError}</p>}
-                    </form>
-                  </CardContent>
-                </Card>
-              ) : (
-                <DbConnectionForm onSubmit={handleExtractSchema} isLoading={schemaLoading} error={schemaError} session={session} />
-              )}
+              <DbConnectionForm onSubmit={handleExtractSchema} isLoading={schemaLoading} error={schemaError} session={session} />
             </motion.div>
           )}
 
@@ -398,9 +352,7 @@ export default function Home() {
                   onClick={() => {
                     setQueryMode('recommendations')
                     setRecommendationsLoading(true)
-                    setTimeout(() => {
-                      handleLoadRecommendations()
-                    }, 5000) // 5-second delay
+                    handleLoadRecommendations()
                   }}
                   disabled={recommendationsLoading}
                 >

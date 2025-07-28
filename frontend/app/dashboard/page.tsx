@@ -93,7 +93,20 @@ export default function Dashboard() {
   }, [session, supabase])
 
   const handleConnect = async (config: DbConfig) => {
-    const fullConfig = { ...config, password: '' }; // Do not include password from secrets
+    // Fetch the secret associated with this connection
+    const { data: secretData, error: secretError } = await supabase
+      .from('secrets')
+      .select('password')
+      .eq('connection_id', config.id)
+      .single();
+
+    if (secretError) {
+      console.error('Error fetching secret for connection:', secretError);
+      // Optionally, show an error to the user
+      return;
+    }
+
+    const fullConfig = { ...config, password: secretData?.password || '' };
     localStorage.setItem('currentDbConfig', JSON.stringify(fullConfig));
     router.push('/');
   }

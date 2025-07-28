@@ -45,7 +45,7 @@ export default function NewConnectionPage() {
     setError(null)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/connect`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/extract-schema`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
