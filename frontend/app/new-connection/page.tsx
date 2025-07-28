@@ -43,6 +43,7 @@ export default function NewConnectionPage() {
   const handleSubmit = async (config: DbConfig) => {
     setIsLoading(true)
     setError(null)
+    console.log("Sending config to /connect:", config)
 
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/connect`, {

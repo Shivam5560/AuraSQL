@@ -58,6 +58,7 @@ export default function Home() {
         const parsedConfig = JSON.parse(savedConfig)
         if (parsedConfig.db_type && parsedConfig.ip && parsedConfig.port && parsedConfig.username && parsedConfig.database && parsedConfig.schema_name && parsedConfig.table_name) {
           setDbConfig(parsedConfig)
+          console.log("Calling handleExtractSchema with config:", parsedConfig)
           handleExtractSchema(parsedConfig) // Call extractSchema immediately
           setStep("schema")
         } else {
