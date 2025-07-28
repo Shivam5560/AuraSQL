@@ -58,7 +58,8 @@ export default function Home() {
         const parsedConfig = JSON.parse(savedConfig)
         if (parsedConfig.db_type && parsedConfig.ip && parsedConfig.port && parsedConfig.username && parsedConfig.database && parsedConfig.schema_name && parsedConfig.table_name) {
           setDbConfig(parsedConfig)
-          setStep("schema") // Proceed to schema if password is present
+          handleExtractSchema(parsedConfig) // Call extractSchema immediately
+          setStep("schema")
         } else {
           localStorage.removeItem('currentDbConfig') // Clear incomplete config
           setStep("connect")
