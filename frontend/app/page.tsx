@@ -354,7 +354,9 @@ export default function Home() {
                   onClick={() => {
                     setQueryMode('recommendations')
                     setRecommendationsLoading(true)
-                    handleLoadRecommendations()
+                    setTimeout(() => {
+                      handleLoadRecommendations()
+                    }, 5000) // 5-second delay
                   }}
                   disabled={recommendationsLoading}
                 >
