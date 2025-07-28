@@ -137,12 +137,25 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
                     setIp(selected.ip)
                     setPort(String(selected.port))
                     setUsername(selected.username)
-                    setPassword(selected.password ?? "")
                     setDatabase(selected.database ?? "")
                     setSchemaName(selected.schema_name)
                     setTableName(selected.table_name)
                     setConnectionName(selected.name ?? "")
                     setSaveConnection(true)
+
+                    // Fetch password from secrets table
+                    const { data: secretData, error: secretError } = await supabase
+                      .from('secrets')
+                      .select('password')
+                      .eq('connection_id', selected.id)
+                      .single()
+
+                    if (secretError) {
+                      console.error('Error fetching secret:', secretError)
+                      setPassword("") // Clear password if not found or error
+                    } else if (secretData) {
+                      setPassword(secretData.password ?? "")
+                    }
                   }
                 }
               }}
