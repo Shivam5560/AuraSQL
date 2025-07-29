@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSupabaseClient, Session } from '@supabase/auth-helpers-react'
+import { createClient } from '@/lib/supabase/client'
+import { Session } from '@supabase/supabase-js'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from "@/components/theme-toggle"
 import { useTheme } from "next-themes"
@@ -27,7 +28,7 @@ import { DbConfig } from '@/lib/types'
 
 export default function Dashboard() {
   const router = useRouter()
-  const supabase = useSupabaseClient()
+  const supabase = createClient()
   const [session, setSession] = useState<Session | null>(null)
   const [loadingSession, setLoadingSession] = useState(true)
   const [connections, setConnections] = useState<DbConfig[]>([])

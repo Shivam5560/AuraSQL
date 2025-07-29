@@ -1,32 +1,37 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSupabaseClient, Session } from '@supabase/auth-helpers-react'
+import { useSupabase } from '@/components/supabase-provider'
 import { Header } from '@/components/ui/header'
+import { Session } from '@supabase/supabase-js'
 
 interface LayoutContentProps {
   children: React.ReactNode;
 }
 
 export default function LayoutContent({ children }: LayoutContentProps) {
-  const supabase = useSupabaseClient();
+  const supabase = useSupabase();
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
 
   useEffect(() => {
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setLoadingSession(false);
+      if (supabase && supabase.auth) {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setLoadingSession(false);
+      }
     };
 
     getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    if (supabase && supabase.auth) {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+      });
 
-    return () => subscription.unsubscribe();
+      return () => subscription.unsubscribe();
+    }
   }, [supabase]);
 
   return (

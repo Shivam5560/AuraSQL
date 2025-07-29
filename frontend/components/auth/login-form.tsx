@@ -1,8 +1,6 @@
-'use client'
-
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@supabase/ssr'
+import { useSupabase } from '@/components/supabase-provider'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,10 +12,7 @@ export function LoginForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = useSupabase()
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -36,8 +31,8 @@ export function LoginForm() {
     } else {
       console.log('Login successful, refreshing session and redirecting to dashboard...')
       await supabase.auth.refreshSession()
-      window.location.href = '/dashboard'
-      console.log('window.location.href called for /dashboard');
+      router.push('/dashboard')
+      console.log('router.push called for /dashboard');
     }
     setLoading(false)
   }

@@ -1,6 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
+import { ParticlesBackground } from '@/components/particles-background'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -9,17 +10,8 @@ import Image from 'next/image';
 export default function LandingPage() {
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center overflow-hidden bg-background text-foreground">
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="absolute inset-0 w-full h-full object-cover z-0"
-      >
-        <source src="/Video_Ready_AuraSQL_Theme.mp4" type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
+    <div className="relative flex min-h-screen flex-col items-center justify-center py-12 overflow-hidden">
+      <ParticlesBackground />
 
       {/* Hero Section */}
       <section className="relative z-10 flex flex-col items-center justify-center text-center py-20 px-4 max-w-4xl mx-auto">
@@ -39,7 +31,7 @@ export default function LandingPage() {
             Unlock Your Data with <span className="text-primary">AuraSQL</span>
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-            Transform natural language into powerful SQL queries. Connect, query, and analyze your databases effortlessly with AI. 
+            Transform natural language into powerful SQL queries. Connect, query, and analyze your databases effortlessly with AI.
           </p>
           <Link href="/login">
             <Button size="lg" className="text-lg px-8 py-4 aura-glow-hover">
@@ -101,31 +93,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Featured Video Section */}
-      <section className="relative z-10 py-20 px-4 w-full max-w-6xl mx-auto text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, amount: 0.5 }}
-          transition={{ duration: 0.8, ease: "easeOut" }}
-        >
-          <h2 className="text-4xl font-bold mb-8">See AuraSQL in Action</h2>
-          <div className="relative w-full max-w-4xl mx-auto aspect-video rounded-xl overflow-hidden shadow-2xl aura-glow">
-            <video
-              className="absolute inset-0 w-full h-full object-cover"
-            >
-              <source src="/Video_Ready_AuraSQL_Theme.mp4" type="video/mp4" />
-              Your browser does not support the video tag.
-            </video>
-          </div>
-        </motion.div>
-      </section>
-
       {/* Call to Action Section */}
       <section className="relative z-10 py-20 px-4 w-full text-center bg-card/50 backdrop-blur-sm">
         <h2 className="text-4xl font-bold mb-8">Ready to Experience the Future of Data Interaction?</h2>
         <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
-          Join the AuraSQL community and revolutionize how you work with databases. 
+          Join the AuraSQL community and revolutionize how you work with databases.
         </p>
         <Link href="/signup">
           <Button size="lg" className="text-lg px-8 py-4 aura-glow-hover">

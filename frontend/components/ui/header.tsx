@@ -4,7 +4,8 @@ import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useSupabaseClient, Session } from '@supabase/auth-helpers-react'
+import { Session } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { ThemeToggle } from '@/components/theme-toggle'
 
@@ -14,7 +15,7 @@ interface HeaderProps {
 
 export function Header({ session }: HeaderProps) {
   const router = useRouter()
-  const supabase = useSupabaseClient()
+  const supabase = createClient()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
