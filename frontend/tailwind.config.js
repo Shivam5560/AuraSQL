@@ -51,6 +51,15 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // New gradient-inspired colors
+        gradientPrimary: "hsl(192 45% 42%)", // A blue-green from the gradient
+        gradientSecondary: "hsl(50 11% 56%)", // A muted yellow-brown from the gradient
+        gradientBackground: "hsl(237 100% 4%)", // Very dark blue from the gradient
+        gradientForeground: "hsl(0 0% 98%)", // Near white for text
+        gradientCard: "hsl(237 50% 8%)", // Slightly lighter dark for cards
+        gradientBorder: "hsl(237 20% 20%)", // Subtle border color
+        gradientInput: "hsl(237 20% 20%)", // Input border color
+        gradientRing: "hsl(192 45% 60%)", // Ring color, lighter primary
       },
       borderRadius: {
         lg: "var(--radius)",

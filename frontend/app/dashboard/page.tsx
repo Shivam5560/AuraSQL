@@ -141,7 +141,7 @@ export default function Dashboard() {
 
     const fullConfig = { ...config, password: secretData?.password || '' };
     localStorage.setItem('currentDbConfig', JSON.stringify(fullConfig));
-    router.push('/');
+    router.push('/query-interface');
   }
 
   const handleEdit = (id: string) => {
@@ -212,7 +212,7 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8 pt-16">
+    <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center text-foreground px-4 py-8 sm:px-6 lg:px-8 pt-16">
       <div className="w-full max-w-7xl space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Saved Connections Section */}

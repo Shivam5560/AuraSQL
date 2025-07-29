@@ -2,90 +2,75 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .bg-gradient-subtle {
-    background-image: linear-gradient(to bottom right, hsl(0 0% 98%), hsl(0 0% 90%)); /* Light mode: very light gray to light gray */
-  }
-
-  .dark .bg-gradient-subtle {
-    background-image: linear-gradient(to bottom right, hsl(0 0% 5%), hsl(0 0% 15%)); /* Dark mode: very dark gray to dark gray */
-  }
+body {
+  background: linear-gradient(90deg, rgba(164, 116, 81, 1.000) 0.000%, rgba(156, 152, 129, 1.000) 16.667%, rgba(115, 160, 157, 1.000) 33.333%, rgba(59, 137, 154, 1.000) 50.000%, rgba(9, 91, 121, 1.000) 66.667%, rgba(0, 40, 71, 1.000) 83.333%, rgba(0, 1, 22, 1.000) 100.000%);
 }
 
 .aura-glow {
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.1), 0 0 30px rgba(0, 0, 0, 0.05);
-}
-
-.dark .aura-glow {
-  box-shadow: 0 0 15px rgba(255, 255, 255, 0.05), 0 0 30px rgba(255, 255, 255, 0.02);
+  box-shadow: 0 0 10px hsla(192, 45%, 42%, 0.3), 0 0 20px hsla(192, 45%, 42%, 0.15);
 }
 
 .aura-glow-hover:hover {
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15), 0 0 40px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 15px hsla(192, 45%, 42%, 0.5), 0 0 30px hsla(192, 45%, 42%, 0.25);
 }
-
-.dark .aura-glow-hover:hover {
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.08), 0 0 40px rgba(255, 255, 255, 0.04);
-}
-
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
+    --background: 237 100% 4%;
+    --foreground: 0 0% 98%;
+    --card: 237 50% 8%;
+    --card-foreground: 0 0% 98%;
+    --popover: 237 50% 8%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 192 45% 42%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    --secondary: 50 11% 56%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 237 20% 20%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 237 20% 20%;
+    --accent-foreground: 0 0% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
+    --border: 237 20% 20%;
+    --input: 237 20% 20%;
+    --ring: 192 45% 60%;
     --radius: 0.65rem;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
+    --chart-1: 174 18% 54%; /* Blue-green from gradient */
+    --chart-2: 29 34% 48%; /* Brownish-orange from gradient */
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --chart-generated-light: 0 0% 40%; /* Light gray for generated in light mode */
-    --chart-executed-light: 0 0% 60%; /* Slightly lighter gray for executed in light mode */
+    --chart-generated-light: 174 18% 54%;
+    --chart-executed-light: 29 34% 48%;
   }
 
   .dark {
-    --background: 0 0% 3.9%;
+    --background: 237 100% 4%;
     --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
+    --card: 237 50% 8%;
     --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
+    --popover: 237 50% 8%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
+    --primary: 192 45% 42%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 50 11% 56%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
+    --muted: 237 20% 20%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 237 20% 20%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
+    --border: 237 20% 20%;
+    --input: 237 20% 20%;
+    --ring: 192 45% 60%;
+    --chart-1: 174 18% 54%;
+    --chart-2: 29 34% 48%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --chart-generated-dark: 0 0% 70%; /* Light gray for generated in dark mode */
-    --chart-executed-dark: 0 0% 50%; /* Slightly darker gray for executed in dark mode */
+    --chart-generated-dark: 174 18% 54%;
+    --chart-executed-dark: 29 34% 48%;
   }
 }

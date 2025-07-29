@@ -1,4 +1,4 @@
-"use client"
+'use client'
 
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Check, Loader2 } from "lucide-react"
-import { getRecommendations, generateQuery, executeQuery } from "@/lib/api"
+import { getRecommendations, generateQuery, executeQuery, extractSchema } from "@/lib/api"
 
 interface DbConfig {
   db_type: string
@@ -38,12 +38,13 @@ interface ExtractedSchema {
   [tableName: string]: SchemaColumn[]
 }
 
-interface QueryInterfaceProps {
-  dbConfig: DbConfig
-  extractedSchema: ExtractedSchema
-}
+export default function QueryInterface() {
+  const [dbConfig, setDbConfig] = useState<DbConfig | null>(null)
+  const [extractedSchema, setExtractedSchema] = useState<ExtractedSchema | null>(null)
+  const [loadingConfig, setLoadingConfig] = useState(true)
+  const [loadingSchema, setLoadingSchema] = useState(false)
+  const [configError, setConfigError] = useState<string | null>(null)
 
-export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProps) {
   const [recommendations, setRecommendations] = useState<string[]>([])
   const [selectedRecommendations, setSelectedRecommendations] = useState<string[]>([])
   const [naturalLanguageQuery, setNaturalLanguageQuery] = useState("")
@@ -57,12 +58,41 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
   const [showAiRecommendations, setShowAiRecommendations] = useState(false)
   const [isLoadingRecommendationsDelayed, setIsLoadingRecommendationsDelayed] = useState(false)
 
-  const tableName = dbConfig.table_name
-  const schemaColumns = extractedSchema[tableName] || []
+  useEffect(() => {
+    const loadConfig = async () => {
+      setLoadingConfig(true)
+      try {
+        const storedConfig = localStorage.getItem('currentDbConfig')
+        if (storedConfig) {
+          const parsedConfig: DbConfig = JSON.parse(storedConfig)
+          setDbConfig(parsedConfig)
+          setLoadingSchema(true)
+          const schemaResult = await extractSchema(parsedConfig)
+          if (schemaResult.success && schemaResult.schema) {
+            setExtractedSchema(schemaResult.schema)
+          } else {
+            setConfigError(schemaResult.detail || "Failed to fetch schema.")
+          }
+          setLoadingSchema(false)
+        } else {
+          setConfigError("No database configuration found. Please connect to a database first.")
+        }
+      } catch (e: any) {
+        setConfigError(`Error loading database configuration: ${e.message}`)
+      } finally {
+        setLoadingConfig(false)
+      }
+    }
+    loadConfig()
+  }, [])
+
+  const tableName = dbConfig?.table_name || ""
+  const schemaColumns = extractedSchema?.[tableName] || []
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
     const fetchRecommendations = async () => {
+      if (!dbConfig) return; // Ensure dbConfig is available
       setIsLoadingRecommendations(true);
       setError(null);
       try {
@@ -80,7 +110,7 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
       }
     };
 
-    if (showAiRecommendations && dbConfig.table_name && dbConfig.schema_name) {
+    if (showAiRecommendations && dbConfig?.table_name && dbConfig?.schema_name) {
       setIsLoadingRecommendationsDelayed(true);
       timer = setTimeout(() => {
         fetchRecommendations();
@@ -88,7 +118,7 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
     }
 
     return () => clearTimeout(timer);
-  }, [showAiRecommendations, dbConfig.db_type, dbConfig.table_name, dbConfig.schema_name]);
+  }, [showAiRecommendations, dbConfig]); // Depend on dbConfig
 
   const toggleRecommendationSelection = (rec: string) => {
     setSelectedRecommendations((prev) =>
@@ -101,6 +131,10 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
   }
 
   const handleGenerateQuery = async () => {
+    if (!dbConfig) {
+      setError("Database configuration not loaded.");
+      return;
+    }
     setIsLoadingQueryGeneration(true)
     setError(null)
     setGeneratedSql("")
@@ -126,14 +160,6 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
       if (result.success && result.sql) {
         setGeneratedSql(result.sql)
         setStep("generatedSqlView")
-        if (userId) {
-          const logResult = await logGeneratedQuery(userId, queryInput, result.sql)
-          if (logResult.success && logResult.queryId) {
-            setGeneratedQueryId(logResult.queryId)
-          } else {
-            console.error("Failed to log generated query:", logResult.detail)
-          }
-        }
       } else {
         setError(result.detail || "Failed to generate SQL query.")
       }
@@ -145,8 +171,8 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
   }
 
   const handleExecuteQuery = async () => {
-    if (!generatedSql) {
-      setError("Please generate an SQL query first.")
+    if (!generatedSql || !dbConfig) {
+      setError("Please generate an SQL query and ensure database configuration is loaded.");
       return
     }
     setIsLoadingQueryExecution(true)
@@ -156,12 +182,6 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
       const result = await executeQuery(dbConfig, generatedSql)
       if (result.success && result.data) {
         setQueryResults(result.data)
-        if (userId) {
-          // Assuming you want to log the last generated query as executed
-          // You might need to fetch the queryId from the generated query log if you want to update a specific entry
-          // For now, we'll log a new executed entry.
-          logExecutedQuery(generatedQueryId, userId, naturalLanguageQuery, generatedSql)
-        }
       } else {
         setError(result.detail || "Failed to execute SQL query.")
       }
@@ -179,7 +199,6 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
     setNaturalLanguageQuery("")
     setError(null)
     setSelectedRecommendations([])
-    setGeneratedQueryId(null)
   }
 
   const startOver = () => {
@@ -187,6 +206,33 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
     clearAll()
     setShowAiRecommendations(false)
     setRecommendations([])
+  }
+
+  if (loadingConfig || loadingSchema) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center text-foreground px-4 py-8 sm:px-6 lg:px-8">
+        <Loader2 className="h-10 w-10 animate-spin" />
+        <p className="mt-4 text-lg">Loading database configuration and schema...</p>
+      </main>
+    )
+  }
+
+  if (configError) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center text-foreground px-4 py-8 sm:px-6 lg:px-8">
+        <p className="text-lg text-red-500">{configError}</p>
+        <Button onClick={() => window.location.href = '/dashboard'} className="mt-4">Go to Dashboard</Button>
+      </main>
+    )
+  }
+
+  if (!dbConfig || !extractedSchema) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center text-foreground px-4 py-8 sm:px-6 lg:px-8">
+        <p className="text-lg text-red-500">Database configuration or schema not loaded. Please try again from the dashboard.</p>
+        <Button onClick={() => window.location.href = '/dashboard'} className="mt-4">Go to Dashboard</Button>
+      </main>
+    )
   }
 
   return (
@@ -199,10 +245,10 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
           </CardHeader>
           <CardContent>
             {schemaColumns.length > 0 ? (
-              <div className="overflow-x-auto rounded-md border">
+              <div className="overflow-x-auto rounded-md border border-border/50">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/50">
+                    <TableRow className="bg-muted/20">
                       <TableHead>Column Name</TableHead>
                       <TableHead>Data Type</TableHead>
                       <TableHead>Nullable</TableHead>
@@ -270,7 +316,7 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
           </Card>
 
           {showAiRecommendations && (
-            <Card className="border-primary shadow-lg">
+            <Card className="border-primary/50 shadow-lg">
               <CardHeader>
                 <CardTitle className="text-xl font-semibold">AI-Generated Query Recommendations</CardTitle>
                 <CardDescription>Click on recommendations to select them. Selected recommendations will be used instead of manual input.</CardDescription>
@@ -331,10 +377,10 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
                 {queryResults.length > 0 && (
                   <div className="pt-4">
                     <h3 className="font-semibold text-lg mb-2">Query Results ({queryResults.length} rows):</h3>
-                    <div className="overflow-x-auto rounded-md border">
+                    <div className="overflow-x-auto rounded-md border border-border/50">
                       <Table>
                         <TableHeader>
-                          <TableRow className="bg-muted/50">
+                          <TableRow className="bg-muted/20">
                             {Object.keys(queryResults[0]).map((key) => (
                               <TableHead key={key}>{key}</TableHead>
                             ))}
@@ -399,10 +445,10 @@ export function QueryInterface({ dbConfig, extractedSchema }: QueryInterfaceProp
           </CardHeader>
           <CardContent className="space-y-4">
             {queryResults.length > 0 ? (
-              <div className="overflow-x-auto rounded-md border">
+              <div className="overflow-x-auto rounded-md border border-border/50">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-muted/50">
+                    <TableRow className="bg-muted/20">
                       {Object.keys(queryResults[0]).map((key) => (
                         <TableHead key={key}>{key}</TableHead>
                       ))}

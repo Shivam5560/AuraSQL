@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { useSupabase } from '@/components/supabase-provider'
+import { createClient } from '@/lib/supabase/client'
 import { Session } from '@supabase/supabase-js'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,7 +22,7 @@ interface DbConnectionFormProps {
 }
 
 export function DbConnectionForm({ onSubmit, isLoading, error, session, initialData }: DbConnectionFormProps) {
-  const supabase = useSupabaseClient()
+  const supabase = createClient()
   const [savedConnections, setSavedConnections] = useState<DbConfig[]>([])
   const [selectedConnectionId, setSelectedConnectionId] = useState<string>("")
 

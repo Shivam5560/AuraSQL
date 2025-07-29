@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSupabase } from '@/components/supabase-provider'
+import { createClient } from '@/lib/supabase/client'
 import { Header } from '@/components/ui/header'
 import { Session } from '@supabase/supabase-js'
 
@@ -10,7 +10,7 @@ interface LayoutContentProps {
 }
 
 export default function LayoutContent({ children }: LayoutContentProps) {
-  const supabase = useSupabase();
+  const supabase = createClient();
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
 

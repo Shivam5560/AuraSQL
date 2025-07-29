@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSupabaseClient, Session } from '@supabase/auth-helpers-react'
+import { createClient } from '@/lib/supabase/client'
+import { Session } from '@supabase/supabase-js'
 import { DbConnectionForm } from '@/components/db-connection-form'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Loader2 } from 'lucide-react'
@@ -11,7 +12,7 @@ import { DbConfig } from '@/lib/types'
 
 export default function EditConnectionPage({ params }: { params: { id: string } }) {
   const router = useRouter()
-  const supabase = useSupabaseClient()
+  const supabase = createClient()
   const [session, setSession] = useState<Session | null>(null)
   const [loadingSession, setLoadingSession] = useState(true)
   const [connection, setConnection] = useState<DbConfig | null>(null)
