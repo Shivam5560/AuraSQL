@@ -59,7 +59,7 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
     e.preventDefault()
     const config: DbConfig = {
       id: initialData?.id ?? "",
-      name: initialData?.name ?? "",
+      name: connectionName,
       db_type: dbType,
       ip,
       port: Number.parseInt(port),
@@ -69,7 +69,13 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
       schema_name: schemaName,
       table_name: tableName,
     }
-    onSubmit(config)
+    try {
+      await onSubmit(config)
+    } catch (error) {
+      // Error is displayed by the parent component.
+      // We just need to prevent the connection from being saved.
+      return
+    }
 
     if (saveConnection && session?.user?.id) {
       const { data: connectionData, error: connectionError } = await supabase

@@ -2,24 +2,15 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useSupabaseClient, Session } from '@supabase/auth-helpers-react'
+import { Session } from '@supabase/auth-helpers-react'
+import { createClient } from '@/lib/supabase/client'
 import { DbConnectionForm } from '@/components/db-connection-form'
 import { Loader2 } from 'lucide-react'
-
-interface DbConfig {
-  db_type: string
-  ip: string
-  port: number
-  username: string
-  password?: string
-  database: string
-  schema_name: string
-  table_name: string
-}
+import { DbConfig } from '@/lib/types'
 
 export default function NewConnectionPage() {
   const router = useRouter()
-  const supabase = useSupabaseClient()
+  const supabase = createClient()
   const [session, setSession] = useState<Session | null>(null)
   const [loadingSession, setLoadingSession] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
@@ -64,6 +55,7 @@ export default function NewConnectionPage() {
       router.push('/'); // Redirect to the main query interface
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
+      throw err;
     } finally {
       setIsLoading(false);
     }
