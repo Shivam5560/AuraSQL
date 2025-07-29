@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
     # Initialize all clients
     app_state["pinecone_index"] = pinecone.Pinecone(api_key=os.getenv("PINECONE_API_KEY")).Index("tableindex")
     app_state["llm"] = Groq(
-        model="llama-3.1-8b-instant",
+        model=os.getenv("GROQ_MODEL", "llama-3.1-8b-instant"),
         api_key=os.getenv("GROQ_API_KEY"),
         response_format={"type": "json_object"},
         temperature=0.1,
