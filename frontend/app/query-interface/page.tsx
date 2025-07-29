@@ -470,6 +470,9 @@ export default function QueryInterface() {
               <Button variant="outline" onClick={() => setStep("query")}>
                 Edit Natural Language Query
               </Button>
+              <Button variant="outline" onClick={() => setStep("query")}>
+                Back to Query
+              </Button>
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
           </CardContent>

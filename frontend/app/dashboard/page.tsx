@@ -265,6 +265,7 @@ export default function Dashboard() {
           <SectionCards
             totalGeneratedQueries={queryHistory.filter(item => item.status === 'generated' || item.status === 'executed').length}
             totalExecutedQueries={queryHistory.filter(item => item.status === 'executed').length}
+            dailyStats={getDailyStats(queryHistory)}
             className="h-full"
           />
 

@@ -1,6 +1,4 @@
-import { IconTrendingUp } from "@tabler/icons-react"
-
-import { Badge } from "@/components/ui/badge"
+import { IconTrendingUp, IconTrendingDown } from "@tabler/icons-react"
 import {
   Card,
   CardAction,
@@ -9,13 +7,51 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+
+interface DailyStatsItem {
+  date: string;
+  generated: number;
+  executed: number;
+  total: number;
+  percentageRise?: number;
+}
 
 interface SectionCardsProps {
   totalGeneratedQueries: number;
   totalExecutedQueries: number;
+  dailyStats: DailyStatsItem[];
 }
 
-export function SectionCards({ totalGeneratedQueries, totalExecutedQueries }: SectionCardsProps) {
+export function SectionCards({ totalGeneratedQueries, totalExecutedQueries, dailyStats }: SectionCardsProps) {
+  const todayStats = dailyStats[dailyStats.length - 1];
+  const yesterdayStats = dailyStats.length > 1 ? dailyStats[dailyStats.length - 2] : null;
+
+  const generatedPercentageChange = yesterdayStats && yesterdayStats.generated > 0
+    ? ((todayStats.generated - yesterdayStats.generated) / yesterdayStats.generated) * 100
+    : todayStats.generated > 0 ? 100 : 0;
+
+  const executedPercentageChange = yesterdayStats && yesterdayStats.executed > 0
+    ? ((todayStats.executed - yesterdayStats.executed) / yesterdayStats.executed) * 100
+    : todayStats.executed > 0 ? 100 : 0;
+
+  const getBadgeVariant = (percentage: number) => {
+    if (percentage > 0) return "success";
+    if (percentage < 0) return "destructive";
+    return "outline";
+  };
+
+  const getIcon = (percentage: number) => {
+    if (percentage > 0) return <IconTrendingUp className="h-4 w-4" />;
+    if (percentage < 0) return <IconTrendingDown className="h-4 w-4" />;
+    return null;
+  };
+
+  const formatPercentage = (percentage: number) => {
+    if (percentage === 0) return "0%";
+    return `${percentage > 0 ? '+' : ''}${percentage.toFixed(0)}%`;
+  };
+
   return (
     <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
       <Card className="@container/card h-full">
@@ -25,9 +61,9 @@ export function SectionCards({ totalGeneratedQueries, totalExecutedQueries }: Se
             {totalGeneratedQueries}
           </CardTitle>
           <CardAction>
-            <Badge variant="outline">
-              <IconTrendingUp />
-              N/A
+            <Badge variant={getBadgeVariant(generatedPercentageChange)}>
+              {getIcon(generatedPercentageChange)}
+              {formatPercentage(generatedPercentageChange)}
             </Badge>
           </CardAction>
         </CardHeader>
@@ -47,9 +83,9 @@ export function SectionCards({ totalGeneratedQueries, totalExecutedQueries }: Se
             {totalExecutedQueries}
           </CardTitle>
           <CardAction>
-            <Badge variant="outline">
-              <IconTrendingUp />
-              N/A
+            <Badge variant={getBadgeVariant(executedPercentageChange)}>
+              {getIcon(executedPercentageChange)}
+              {formatPercentage(executedPercentageChange)}
             </Badge>
           </CardAction>
         </CardHeader>

@@ -21,8 +21,8 @@ function AboutContent() {
   }, [section]);
 
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center bg-background text-foreground px-4 py-8 sm:px-6 lg:px-8 pt-16">
-      <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center text-foreground px-4 py-8 sm:px-6 lg:px-8 pt-16 bg-gradient-to-br from-gray-900 to-black aura-glow-hover">
+      <div className="w-full max-w-7xl grid grid-cols-1 lg:grid-cols-2 gap-8 z-10">
         <Card id="about-aurasql">
           <CardHeader>
             <CardTitle className="text-3xl font-bold">About AuraSQL</CardTitle>

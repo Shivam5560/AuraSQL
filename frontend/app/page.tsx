@@ -14,23 +14,23 @@ export default function LandingPage() {
       <ParticlesBackground />
 
       {/* Hero Section */}
-      <section className="relative z-10 flex flex-col items-center justify-center text-center py-20 px-4 max-w-4xl mx-auto">
+      <section className="relative z-10 flex flex-col items-center justify-center text-center py-20 px-4 max-w-4xl mx-auto bg-gradient-to-b from-transparent to-background/50 rounded-lg shadow-2xl p-8">
         <motion.div
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, ease: "easeOut" }}
         >
-          <Image
-            src="/aurasql-logo.svg"
-            alt="AuraSQL Logo"
-            width={180}
-            height={180}
-            className="mb-8 mx-auto"
-          />
-          <h1 className="text-5xl md:text-7xl font-extrabold leading-tight mb-6">
+            <Image
+              src="/aurasql-logo.svg"
+              alt="AuraSQL Logo"
+              width={250}
+              height={250}
+              className="mb-8 mx-auto aura-glow-hover"
+            />
+          <h1 className="text-5xl md:text-7xl font-extrabold leading-tight mb-6 text-white drop-shadow-lg">
             Unlock Your Data with <span className="text-primary">AuraSQL</span>
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
+          <p className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl mx-auto drop-shadow-md">
             Transform natural language into powerful SQL queries. Connect, query, and analyze your databases effortlessly with AI.
           </p>
           <Link href="/login">
@@ -49,54 +49,59 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+            className="p-6 rounded-lg border border-border/50 bg-card/50 backdrop-blur-sm h-full aura-glow-hover"
           >
-            <Card className="h-full aura-glow-hover">
-              <CardHeader>
-                <CardTitle>Natural Language to SQL</CardTitle>
-                <CardDescription>Convert your questions into precise SQL queries instantly.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">No more complex syntax. Just ask, and AuraSQL delivers the code you need.</p>
-              </CardContent>
-            </Card>
+            <h3 className="text-xl font-semibold mb-2">Natural Language to SQL</h3>
+            <p className="text-muted-foreground mb-4">Convert your questions into precise SQL queries instantly.</p>
+            <p className="text-foreground">No more complex syntax. Just ask, and AuraSQL delivers the code you need.</p>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
+            className="p-6 rounded-lg border border-border/50 bg-card/50 backdrop-blur-sm h-full aura-glow-hover"
           >
-            <Card className="h-full aura-glow-hover">
-              <CardHeader>
-                <CardTitle>Seamless Database Integration</CardTitle>
-                <CardDescription>Connect to PostgreSQL, MySQL, and Oracle databases with ease.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Securely manage your connections and extract schemas effortlessly.</p>
-              </CardContent>
-            </Card>
+            <h3 className="text-xl font-semibold mb-2">Seamless Database Integration</h3>
+            <p className="text-muted-foreground mb-4">Connect to PostgreSQL, MySQL, and Oracle databases with ease.</p>
+            <p className="text-foreground">Securely manage your connections and extract schemas effortlessly.</p>
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
+            className="p-6 rounded-lg border border-border/50 bg-card/50 backdrop-blur-sm h-full aura-glow-hover"
           >
-            <Card className="h-full aura-glow-hover">
-              <CardHeader>
-                <CardTitle>Query History & Management</CardTitle>
-                <CardDescription>Keep track of all your generated and executed queries.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Review, re-run, and manage your past interactions with your data.</p>
-              </CardContent>
-            </Card>
+            <h3 className="text-xl font-semibold mb-2">Query History & Management</h3>
+            <p className="text-muted-foreground mb-4">Keep track of all your generated and executed queries.</p>
+            <p className="text-foreground">Review, re-run, and manage your past interactions with your data.</p>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.8, ease: "easeOut" }}
+            className="p-6 rounded-lg border border-border/50 bg-card/50 backdrop-blur-sm h-full aura-glow-hover"
+          >
+            <h3 className="text-xl font-semibold mb-2">Advanced Security</h3>
+            <p className="text-muted-foreground mb-4">Your data's safety is our top priority.</p>
+            <p className="text-foreground">AuraSQL employs robust security measures to protect your sensitive database credentials and query data.</p>
+          </motion.div>
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 1.0, ease: "easeOut" }}
+            className="p-6 rounded-lg border border-border/50 bg-card/50 backdrop-blur-sm h-full aura-glow-hover"
+          >
+            <h3 className="text-xl font-semibold mb-2">Intuitive User Interface</h3>
+            <p className="text-muted-foreground mb-4">Designed for clarity and ease of use.</p>
+            <p className="text-foreground">Navigate effortlessly through connections, queries, and results with a clean and responsive design.</p>
           </motion.div>
         </div>
       </section>
 
       {/* Call to Action Section */}
-      <section className="relative z-10 py-20 px-4 w-full text-center bg-card/50 backdrop-blur-sm">
+      <section className="relative z-10 py-20 px-4 w-full text-center">
         <h2 className="text-4xl font-bold mb-8">Ready to Experience the Future of Data Interaction?</h2>
-        <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
+        <p className="text-lg text-foreground mb-10 max-w-2xl mx-auto drop-shadow-md">
           Join the AuraSQL community and revolutionize how you work with databases.
         </p>
         <Link href="/signup">
