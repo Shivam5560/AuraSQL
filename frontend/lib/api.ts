@@ -1,3 +1,5 @@
+import { createClient } from '@/lib/supabase/client'
+
 interface DbConfig {
   db_type: string
   ip: string
@@ -196,31 +198,34 @@ export async function logGeneratedQuery(
   userId: string,
   naturalLanguageQuery: string,
   generatedSql: string
-): Promise<ApiResponse> {
+): Promise<ApiResponse<{ queryId: string }>> {
+  const supabase = createClient();
   try {
-    const response = await fetch(`${API_BASE_URL}/log_query_generated`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        natural_language_query: naturalLanguageQuery,
-        generated_sql: generatedSql,
-      }),
-    })
+    const { data, error } = await supabase
+      .from('query_history')
+      .insert([
+        {
+          user_id: userId,
+          natural_language_query: naturalLanguageQuery,
+          generated_sql: generatedSql,
+          status: 'generated',
+        },
+      ])
+      .select('id')
+      .single();
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+    if (error) {
+      console.error('Error logging generated query to Supabase:', error);
+      return { success: false, detail: error.message };
     }
 
-    return await response.json()
+    return { success: true, queryId: data.id };
   } catch (error) {
-    console.error('Error logging generated query:', error)
+    console.error('Unexpected error logging generated query:', error);
     return {
       success: false,
-      detail: error instanceof Error ? error.message : 'Unknown error occurred'
-    }
+      detail: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
   }
 }
 
@@ -229,32 +234,25 @@ export async function logExecutedQuery(
   userId: string,
   naturalLanguageQuery: string,
   generatedSql: string
-): Promise<ApiResponse<{ queryId: string }>> {
+): Promise<ApiResponse> {
+  const supabase = createClient();
   try {
-    const response = await fetch(`${API_BASE_URL}/log_query_executed`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        query_id: queryId,
-        user_id: userId,
-        natural_language_query: naturalLanguageQuery,
-        generated_sql: generatedSql,
-      }),
-    })
+    const { error } = await supabase
+      .from('query_history')
+      .update({ status: 'executed' })
+      .eq('id', queryId);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+    if (error) {
+      console.error('Error logging executed query to Supabase:', error);
+      return { success: false, detail: error.message };
     }
 
-    const data = await response.json();
-    return { success: data.success, queryId: data.query_id, detail: data.detail };
+    return { success: true };
   } catch (error) {
-    console.error('Error logging executed query:', error)
+    console.error('Unexpected error logging executed query:', error);
     return {
       success: false,
-      detail: error instanceof Error ? error.message : 'Unknown error occurred'
-    }
+      detail: error instanceof Error ? error.message : 'Unknown error occurred',
+    };
   }
 }

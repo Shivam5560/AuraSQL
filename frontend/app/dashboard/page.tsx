@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChartHistory } from '@/components/ui/chart-history'
+import { ChartDonutSql } from '@/components/ui/chart-donut-sql'
 import { SectionCards } from '@/components/section-cards'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from '@/components/ui/chart'
 
@@ -35,6 +36,10 @@ export default function Dashboard() {
   const [loadingConnections, setLoadingConnections] = useState(true)
   const [queryHistory, setQueryHistory] = useState<QueryHistoryItem[]>([])
   const [loadingHistory, setLoadingHistory] = useState(true)
+  const [displayLimit, setDisplayLimit] = useState(5)
+
+  const generatedOnlyCount = useMemo(() => queryHistory.filter(item => item.status === 'generated').length, [queryHistory]);
+  const executedCount = useMemo(() => queryHistory.filter(item => item.status === 'executed').length, [queryHistory]);
 
   // State for sorting and filtering
   const [sortBy, setSortBy] = useState<keyof QueryHistoryItem>('created_at')
@@ -62,8 +67,8 @@ export default function Dashboard() {
       }
       return 0
     })
-    return sorted
-  }, [queryHistory, sortBy, sortOrder, filterStatus])
+    return sorted.slice(0, displayLimit)
+  }, [queryHistory, sortBy, sortOrder, filterStatus, displayLimit])
 
   useEffect(() => {
     const getSession = async () => {
@@ -212,13 +217,13 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center text-foreground px-4 py-8 sm:px-6 lg:px-8 pt-16">
-      <div className="w-full max-w-7xl space-y-8">
+    <main className="flex min-h-[calc(100vh-4rem)] flex-col items-center text-foreground pt-16">
+      <div className="w-full max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Saved Connections Section */}
-          <Card className="aura-glow-hover lg:col-span-2">
+          <Card className="aura-glow-hover lg:col-span-2 h-full">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-2xl font-semibold">Your Saved Connections</CardTitle>
+              <CardTitle className="text-xl font-semibold">Your Saved Connections</CardTitle>
               <Button variant="outline" size="sm" onClick={() => {
                 router.push('/new-connection')
               }}>
@@ -231,12 +236,12 @@ export default function Dashboard() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {connections.map((conn) => (
-                    <Card key={conn.id} className="aura-glow-hover">
+                    <Card key={conn.id}>
                       <CardHeader>
                         <CardTitle>{String(conn.name ?? '')}</CardTitle>
                         <CardDescription>{conn.db_type} - {String(conn.database ?? '')}</CardDescription>
                       </CardHeader>
-                      <CardContent className="flex justify-between items-center">
+                      <CardContent className="flex flex-col sm:flex-row justify-between items-center gap-2">
                         <Button size="sm" onClick={() => handleConnect(conn)}>
                           <PlayCircle className="mr-2 h-4 w-4" /> Connect
                         </Button>
@@ -260,52 +265,40 @@ export default function Dashboard() {
           <SectionCards
             totalGeneratedQueries={queryHistory.filter(item => item.status === 'generated' || item.status === 'executed').length}
             totalExecutedQueries={queryHistory.filter(item => item.status === 'executed').length}
+            className="h-full"
           />
+
+          {/* Daily Query Activity Chart */}
+          <Card className="aura-glow-hover lg:col-start-1 lg:col-span-2 h-full">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold">Daily Query Activity</CardTitle>
+              <CardDescription>Number of queries generated/executed per day.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartHistory data={getDailyStats(queryHistory)} />
+            </CardContent>
+          </Card>
+
+          {/* SQL Creation Overview */}
+          <Card className="aura-glow-hover lg:col-start-3 lg:col-span-1 h-full">
+            <CardHeader>
+              <CardTitle className="text-xl font-semibold">SQL Creation Overview</CardTitle>
+              <CardDescription>Breakdown of generated vs. executed SQL queries.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center">
+              <ChartDonutSql generatedCount={generatedOnlyCount} executedCount={executedCount} />
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Daily Query Activity Chart */}
+        {/* Query History Section */}
         <Card className="aura-glow-hover">
-          <CardHeader>
-            <CardTitle className="text-2xl font-semibold">Daily Query Activity</CardTitle>
-            <CardDescription>Number of queries generated/executed per day.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartHistory data={getDailyStats(queryHistory)} />
-          </CardContent>
-        </Card>
-
-        {/* Query History Table */}
-        <Card className="aura-glow-hover">
-          <CardHeader>
-            <CardTitle className="text-2xl font-semibold">Query History</CardTitle>
-            <CardDescription>Review your past generated and executed SQL queries.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4 mb-4">
-              <Select value={sortBy} onValueChange={(value) => setSortBy(value as keyof QueryHistoryItem)}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xl font-semibold">Query History</CardTitle>
+            <div className="flex items-center space-x-2">
+              <Select value={filterStatus} onValueChange={(value: "all" | "generated" | "executed") => setFilterStatus(value)}>
                 <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Sort By" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="created_at">Date</SelectItem>
-                  <SelectItem value="status">Status</SelectItem>
-                  <SelectItem value="natural_language_query">Query</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as 'asc' | 'desc')}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Sort Order" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="asc">Ascending</SelectItem>
-                  <SelectItem value="desc">Descending</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as 'all' | 'generated' | 'executed')}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter Status" />
+                  <SelectValue placeholder="Filter by Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
@@ -313,11 +306,44 @@ export default function Dashboard() {
                   <SelectItem value="executed">Executed</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={sortBy} onValueChange={(value: keyof QueryHistoryItem) => setSortBy(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Sort By" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="created_at">Date</SelectItem>
+                  <SelectItem value="natural_language_query">Natural Language Query</SelectItem>
+                  <SelectItem value="status">Status</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={sortOrder} onValueChange={(value: "asc" | "desc") => setSortOrder(value)}>
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue placeholder="Order" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="desc">Descending</SelectItem>
+                  <SelectItem value="asc">Ascending</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={String(displayLimit)} onValueChange={(value) => setDisplayLimit(Number(value))}>
+                <SelectTrigger className="w-[100px]">
+                  <SelectValue placeholder="Show" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5</SelectItem>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value={String(queryHistory.length)}>All</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+          </CardHeader>
+          <CardContent>
             {filteredAndSortedHistory.length === 0 ? (
-              <p className="text-muted-foreground">No query history yet. Generate some SQL queries on the main page!</p>
+              <p className="text-muted-foreground">No query history available.</p>
             ) : (
-              <div className="overflow-x-auto rounded-md border aura-glow">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -328,16 +354,16 @@ export default function Dashboard() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAndSortedHistory.map((historyItem) => (
-                      <TableRow key={historyItem.id}>
-                        <TableCell className="whitespace-normal">{new Date(historyItem.created_at).toLocaleDateString()}</TableCell>
-                        <TableCell className="whitespace-normal">
-                          <Badge className={`text-xs ${historyItem.status === 'executed' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}>
-                            {historyItem.status}
+                    {filteredAndSortedHistory.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{new Date(item.created_at).toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Badge variant={item.status === 'executed' ? 'default' : 'secondary'}>
+                            {item.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="whitespace-normal">{historyItem.natural_language_query}</TableCell>
-                        <TableCell className="font-mono text-xs whitespace-normal">{historyItem.generated_sql}</TableCell>
+                        <TableCell>{item.natural_language_query}</TableCell>
+                        <TableCell className="font-mono text-sm">{item.generated_sql}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

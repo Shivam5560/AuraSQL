@@ -30,8 +30,8 @@ interface ChartHistoryProps {
 
 export function ChartHistory({ data }: ChartHistoryProps) {
   const { theme } = useTheme();
-  const generatedColor = theme === 'dark' ? 'hsl(var(--chart-generated-dark))' : 'hsl(var(--chart-generated-light))';
-  const executedColor = theme === 'dark' ? 'hsl(var(--chart-executed-dark))' : 'hsl(var(--chart-executed-light))';
+  const generatedColor = 'hsl(var(--chart-1))';
+  const executedColor = 'hsl(var(--chart-2))';
 
   return (
     <React.Fragment>
@@ -40,7 +40,7 @@ export function ChartHistory({ data }: ChartHistoryProps) {
           generated: { label: 'Generated', color: generatedColor },
           executed: { label: 'Executed', color: executedColor },
         }}
-        className="aspect-auto h-[250px] w-full"
+        className="aspect-auto h-[200px] w-full"
       >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data}>
@@ -58,8 +58,9 @@ export function ChartHistory({ data }: ChartHistoryProps) {
                   day: "numeric",
                 })
               }}
+              stroke="white"
             />
-            <YAxis stroke="hsl(var(--foreground))" />
+            <YAxis stroke="white" interval="preserveStartEnd" domain={[0, 'dataMax + 5']} />
             <ChartTooltip
               cursor={{ fill: 'hsl(var(--muted))' }}
               content={({ active, payload }) => (
@@ -79,14 +80,14 @@ export function ChartHistory({ data }: ChartHistoryProps) {
             <Bar
               dataKey="generated"
               fill={generatedColor}
-              stackId="a"
               radius={[4, 4, 0, 0]}
+              barSize={15}
             />
             <Bar
               dataKey="executed"
               fill={executedColor}
-              stackId="a"
               radius={[4, 4, 0, 0]}
+              barSize={15}
             />
             <ChartLegend content={({ payload }) => <ChartLegendContent payload={payload} />} />
           </BarChart>

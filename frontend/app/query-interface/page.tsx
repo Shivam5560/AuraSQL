@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -8,7 +8,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Check, Loader2 } from "lucide-react"
-import { getRecommendations, generateQuery, executeQuery, extractSchema } from "@/lib/api"
+import { getRecommendations, generateQuery, executeQuery, extractSchema, logGeneratedQuery, logExecutedQuery } from "@/lib/api"
+import { createClient } from '@/lib/supabase/client'
+import { Session } from '@supabase/supabase-js'
 
 interface DbConfig {
   db_type: string
@@ -58,6 +60,19 @@ export default function QueryInterface() {
   const [showAiRecommendations, setShowAiRecommendations] = useState(false)
   const [isLoadingRecommendationsDelayed, setIsLoadingRecommendationsDelayed] = useState(false)
 
+  const supabase = createClient()
+  const [session, setSession] = useState<Session | null>(null)
+  const [currentQueryId, setCurrentQueryId] = useState<string | null>(null)
+  const recommendationsCache = useRef<Record<string, string[]>>({})
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setSession(session)
+    }
+    getSession()
+  }, [supabase])
+
   useEffect(() => {
     const loadConfig = async () => {
       setLoadingConfig(true)
@@ -93,12 +108,22 @@ export default function QueryInterface() {
     let timer: NodeJS.Timeout;
     const fetchRecommendations = async () => {
       if (!dbConfig) return; // Ensure dbConfig is available
+
+      const cacheKey = `${dbConfig.db_type}-${dbConfig.table_name}-${dbConfig.schema_name}`;
+      if (recommendationsCache.current[cacheKey]) {
+        setRecommendations(recommendationsCache.current[cacheKey]);
+        setIsLoadingRecommendations(false);
+        setIsLoadingRecommendationsDelayed(false);
+        return;
+      }
+
       setIsLoadingRecommendations(true);
       setError(null);
       try {
         const result = await getRecommendations(dbConfig.db_type, dbConfig.table_name, dbConfig.schema_name);
         if (result.success && result.recommendations) {
           setRecommendations(result.recommendations);
+          recommendationsCache.current[cacheKey] = result.recommendations; // Cache the results
         } else {
           setError(result.detail || "Failed to fetch recommendations.");
         }
@@ -118,7 +143,7 @@ export default function QueryInterface() {
     }
 
     return () => clearTimeout(timer);
-  }, [showAiRecommendations, dbConfig]); // Depend on dbConfig
+  }, [showAiRecommendations, dbConfig, recommendationsCache]); // Depend on dbConfig and recommendationsCache
 
   const toggleRecommendationSelection = (rec: string) => {
     setSelectedRecommendations((prev) =>
@@ -160,6 +185,14 @@ export default function QueryInterface() {
       if (result.success && result.sql) {
         setGeneratedSql(result.sql)
         setStep("generatedSqlView")
+        if (session?.user?.id) {
+          const logResult = await logGeneratedQuery(session.user.id, queryInput, result.sql)
+          if (logResult.success && logResult.queryId) {
+            setCurrentQueryId(logResult.queryId)
+          } else {
+            console.error("Failed to log generated query:", logResult.detail)
+          }
+        }
       } else {
         setError(result.detail || "Failed to generate SQL query.")
       }
@@ -182,6 +215,12 @@ export default function QueryInterface() {
       const result = await executeQuery(dbConfig, generatedSql)
       if (result.success && result.data) {
         setQueryResults(result.data)
+        if (session?.user?.id && currentQueryId) {
+          const logResult = await logExecutedQuery(currentQueryId, session.user.id, naturalLanguageQuery, generatedSql)
+          if (!logResult.success) {
+            console.error("Failed to log executed query:", logResult.detail)
+          }
+        }
       } else {
         setError(result.detail || "Failed to execute SQL query.")
       }
@@ -236,16 +275,16 @@ export default function QueryInterface() {
   }
 
   return (
-    <div className="grid gap-6 w-full">
+    <div className="grid gap-6 w-[90%] mx-auto py-8"> 
       {step === "schema" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl font-semibold">Extracted Schema for &quot;{tableName}&quot;</CardTitle>
+            <CardTitle>Extracted Schema for &quot;{tableName}&quot;</CardTitle>
             <CardDescription>Review the schema details for the selected table.</CardDescription>
           </CardHeader>
           <CardContent>
             {schemaColumns.length > 0 ? (
-              <div className="overflow-x-auto rounded-md border border-border/50">
+              <div className="overflow-x-auto rounded-lg border border-border/50">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/20">
@@ -283,7 +322,7 @@ export default function QueryInterface() {
         <>
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl font-semibold">Generate SQL Query</CardTitle>
+              <CardTitle>Generate SQL Query</CardTitle>
               <CardDescription>Enter your natural language query to generate SQL.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -291,7 +330,7 @@ export default function QueryInterface() {
                 placeholder="e.g., 'Show me the total sales for each product category.'"
                 value={naturalLanguageQuery}
                 onChange={(e) => setNaturalLanguageQuery(e.target.value)}
-                className="min-h-[120px]"
+                className="min-h-[120px] bg-card/50 border-border/50"
               />
               
               <div className="flex gap-2">
@@ -318,7 +357,7 @@ export default function QueryInterface() {
           {showAiRecommendations && (
             <Card className="border-primary/50 shadow-lg">
               <CardHeader>
-                <CardTitle className="text-xl font-semibold">AI-Generated Query Recommendations</CardTitle>
+                <CardTitle>AI-Generated Query Recommendations</CardTitle>
                 <CardDescription>Click on recommendations to select them. Selected recommendations will be used instead of manual input.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -364,11 +403,11 @@ export default function QueryInterface() {
           {generatedSql && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-2xl font-semibold">Generated SQL Query</CardTitle>
+                <CardTitle>Generated SQL Query</CardTitle>
                 <CardDescription>Your SQL query is ready. You can now execute it.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Textarea value={generatedSql} readOnly className="min-h-[120px] font-mono bg-muted/30" />
+                <Textarea value={generatedSql} readOnly className="min-h-[120px] font-mono bg-card/50 border-border/50" />
                 <Button onClick={handleExecuteQuery} disabled={isLoadingQueryExecution} className="w-full">
                   {isLoadingQueryExecution && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Execute SQL Query
@@ -377,7 +416,7 @@ export default function QueryInterface() {
                 {queryResults.length > 0 && (
                   <div className="pt-4">
                     <h3 className="font-semibold text-lg mb-2">Query Results ({queryResults.length} rows):</h3>
-                    <div className="overflow-x-auto rounded-md border border-border/50">
+                    <div className="overflow-x-auto rounded-lg border border-border/50">
                       <Table>
                         <TableHeader>
                           <TableRow className="bg-muted/20">
@@ -418,11 +457,11 @@ export default function QueryInterface() {
       {step === "generatedSqlView" && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl font-semibold">Generated SQL Query</CardTitle>
+            <CardTitle>Generated SQL Query</CardTitle>
             <CardDescription>Review the generated SQL query before execution.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Textarea value={generatedSql} readOnly className="min-h-[120px] font-mono bg-muted/30" />
+            <Textarea value={generatedSql} readOnly className="min-h-[120px] font-mono bg-card/50 border-border/50" />
             <div className="flex gap-2">
               <Button onClick={handleExecuteQuery} disabled={isLoadingQueryExecution} className="flex-1">
                 {isLoadingQueryExecution && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -445,7 +484,7 @@ export default function QueryInterface() {
           </CardHeader>
           <CardContent className="space-y-4">
             {queryResults.length > 0 ? (
-              <div className="overflow-x-auto rounded-md border border-border/50">
+              <div className="overflow-x-auto rounded-lg border border-border/50">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/20">

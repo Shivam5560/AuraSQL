@@ -41,8 +41,8 @@ body {
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --chart-generated-light: 174 18% 54%;
-    --chart-executed-light: 29 34% 48%;
+    --chart-generated-light: var(--primary);
+    --chart-executed-light: var(--secondary);
   }
 
   .dark {
@@ -70,7 +70,7 @@ body {
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --chart-generated-dark: 174 18% 54%;
-    --chart-executed-dark: 29 34% 48%;
+    --chart-generated-dark: var(--primary);
+    --chart-executed-dark: var(--secondary);
   }
 }

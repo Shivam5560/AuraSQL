@@ -15,11 +15,7 @@ export function ParticlesBackground() {
   const particlesOptions = useMemo(() => {
     const isDark = theme === 'dark';
     return {
-      background: {
-        color: {
-          value: isDark ? '#0a0a0a' : '#f0f0f0',
-        },
-      },
+      
       fpsLimit: 120,
       interactivity: {
         events: {
