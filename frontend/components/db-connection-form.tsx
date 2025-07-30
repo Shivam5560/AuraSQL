@@ -77,39 +77,13 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
       return
     }
 
-    if (saveConnection && session?.user?.id) {
-      const { data: connectionData, error: connectionError } = await supabase
-        .from('connections')
-        .insert({
-          user_id: session.user.id,
-          name: connectionName,
-          db_type: dbType,
-          ip,
-          port: Number.parseInt(port),
-          username,
-          database,
-          schema_name: schemaName,
-          table_name: tableName,
-        })
-        .select()
-        .single()
-
-      if (connectionError) {
-        console.error('Error saving connection:', connectionError)
-        // Optionally, set an error state for the form
-      } else if (connectionData && password) {
-        const { error: secretError } = await supabase
-          .from('secrets')
-          .insert({
-            connection_id: connectionData.id,
-            password,
-          })
-        if (secretError) {
-          console.error('Error saving password:', secretError)
-          // Optionally, set an error state for the form
-        }
-      }
+    if (initialData) {
+      // If initialData is provided, it's an edit operation, so just call onSubmit
+      // The parent component (EditConnectionPage) will handle the update logic
+      return;
     }
+
+    
   }
 
   return (
@@ -120,67 +94,7 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
       </CardHeader>
       <CardContent className="space-y-6">
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="savedConnection">Saved Connections</Label>
-            <Select
-              value={selectedConnectionId || ""}
-              onValueChange={async (value) => {
-                setSelectedConnectionId(value)
-                if (value === "new" || !value) {
-                  setSelectedConnectionId("new")
-                  setDbType("postgresql")
-                  setIp("localhost")
-                  setPort("5432")
-                  setUsername("shivamsourav")
-                  setPassword("")
-                  setDatabase("postgres")
-                  setSchemaName("public")
-                  setTableName("sales")
-                  setConnectionName("")
-                  setSaveConnection(false)
-                } else {
-                  const selected = savedConnections.find(conn => conn.id === value)
-                  if (selected) {
-                    setDbType(selected.db_type)
-                    setIp(selected.ip)
-                    setPort(String(selected.port))
-                    setUsername(selected.username)
-                    setDatabase(selected.database ?? "")
-                    setSchemaName(selected.schema_name)
-                    setTableName(selected.table_name)
-                    setConnectionName(selected.name ?? "")
-                    setSaveConnection(true)
-
-                    // Fetch password from secrets table
-                    const { data: secretData, error: secretError } = await supabase
-                      .from('secrets')
-                      .select('password')
-                      .eq('connection_id', selected.id)
-                      .single()
-
-                    if (secretError) {
-                      console.error('Error fetching secret:', secretError)
-                      setPassword("") // Clear password if not found or error
-                    } else if (secretData) {
-                      setPassword(secretData.password ?? "")
-                    }
-                  }
-                }
-              }}
-            >
-              <SelectTrigger id="savedConnection" className="w-full">
-                <SelectValue placeholder="Select a saved connection" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="new">New Connection</SelectItem>
-                {savedConnections.map((conn) => (
-                  <SelectItem key={conn.id} value={conn.id}>
-                    {conn.name ?? ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          
           <div className="space-y-2">
             <Label htmlFor="dbType">Database Type</Label>
             <Select value={dbType} onValueChange={setDbType}>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from "react"
+import { useRouter } from 'next/navigation'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -8,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Check, Loader2 } from "lucide-react"
-import { getRecommendations, generateQuery, executeQuery, extractSchema, logGeneratedQuery, logExecutedQuery } from "@/lib/api"
+import { getRecommendations, generateQuery, executeQuery, extractSchema, insertSchema, logGeneratedQuery, logExecutedQuery } from "@/lib/api"
 import { createClient } from '@/lib/supabase/client'
 import { Session } from '@supabase/supabase-js'
 
@@ -41,10 +42,11 @@ interface ExtractedSchema {
 }
 
 export default function QueryInterface() {
+  const router = useRouter()
   const [dbConfig, setDbConfig] = useState<DbConfig | null>(null)
   const [extractedSchema, setExtractedSchema] = useState<ExtractedSchema | null>(null)
   const [loadingConfig, setLoadingConfig] = useState(true)
-  const [loadingSchema, setLoadingSchema] = useState(false)
+  const [isLoadingSchema, setIsLoadingSchema] = useState(false)
   const [configError, setConfigError] = useState<string | null>(null)
 
   const [recommendations, setRecommendations] = useState<string[]>([])
@@ -59,6 +61,7 @@ export default function QueryInterface() {
   const [step, setStep] = useState<'schema' | 'query' | 'results'>("schema")
   const [showAiRecommendations, setShowAiRecommendations] = useState(false)
   const [isLoadingRecommendationsDelayed, setIsLoadingRecommendationsDelayed] = useState(false)
+  const [loadingMessage, setLoadingMessage] = useState("Loading database configuration and schema...");
 
   const supabase = createClient()
   const [session, setSession] = useState<Session | null>(null)
@@ -73,33 +76,115 @@ export default function QueryInterface() {
     getSession()
   }, [supabase])
 
+  const [schemaProcessed, setSchemaProcessed] = useState(false);
+
   useEffect(() => {
     const loadConfig = async () => {
-      setLoadingConfig(true)
+      setLoadingConfig(true);
+      // Reset previous state
+      setExtractedSchema(null);
+      setDbConfig(null);
+      setConfigError(null);
+      setSchemaProcessed(false);
+
       try {
-        const storedConfig = localStorage.getItem('currentDbConfig')
-        if (storedConfig) {
-          const parsedConfig: DbConfig = JSON.parse(storedConfig)
-          setDbConfig(parsedConfig)
-          setLoadingSchema(true)
-          const schemaResult = await extractSchema(parsedConfig)
-          if (schemaResult.success && schemaResult.schema) {
-            setExtractedSchema(schemaResult.schema)
-          } else {
-            setConfigError(schemaResult.detail || "Failed to fetch schema.")
-          }
-          setLoadingSchema(false)
+        const urlParams = new URLSearchParams(window.location.search);
+        const configParam = urlParams.get('config');
+        const schemaParam = urlParams.get('schema');
+
+        let currentConfig: DbConfig | null = null;
+        let currentSchema: ExtractedSchema | null = null;
+
+        if (configParam && schemaParam) {
+          currentConfig = JSON.parse(decodeURIComponent(configParam));
+          currentSchema = JSON.parse(decodeURIComponent(schemaParam));
+          // Clear the URL parameters to prevent issues on subsequent reloads
+          router.replace(window.location.pathname, undefined, { shallow: true });
         } else {
-          setConfigError("No database configuration found. Please connect to a database first.")
+          const connectionIdParam = urlParams.get('connection_id');
+          if (connectionIdParam) {
+            const { data: connectionData, error: connectionError } = await supabase
+              .from('connections')
+              .select('*')
+              .eq('id', connectionIdParam)
+              .single();
+
+            if (connectionError) {
+              throw new Error(`Failed to fetch connection details: ${connectionError.message}`);
+            }
+
+            const { data: secretData, error: secretError } = await supabase
+              .from('secrets')
+              .select('password')
+              .eq('connection_id', connectionIdParam)
+              .single();
+
+            if (secretError) {
+              throw new Error(`Failed to fetch secret for connection: ${secretError.message}`);
+            }
+
+            currentConfig = { ...connectionData, password: secretData?.password || '' };
+          }
+        }
+
+        if (currentConfig) {
+          setDbConfig(currentConfig);
+          if (currentSchema) {
+            setExtractedSchema(currentSchema);
+            setSchemaProcessed(false); // Needs processing
+          } else {
+            setIsLoadingSchema(true);
+            const schemaResult = await extractSchema(currentConfig);
+            if (schemaResult.success && schemaResult.schema) {
+              setExtractedSchema(schemaResult.schema);
+              setSchemaProcessed(false); // Always require processing
+            } else {
+              setConfigError(schemaResult.detail || "Failed to fetch schema.");
+            }
+            setIsLoadingSchema(false);
+          }
+        } else {
+          setConfigError("No database configuration found. Please connect to a database first.");
         }
       } catch (e: any) {
-        setConfigError(`Error loading database configuration: ${e.message}`)
+        setConfigError(`Error loading database configuration: ${e.message}`);
       } finally {
-        setLoadingConfig(false)
+        setLoadingConfig(false);
       }
+    };
+
+    loadConfig();
+
+    // Remove the event listener as it's no longer needed
+    const handleConnectionChange = () => {
+      // This listener is now redundant, but we keep it to remove it cleanly
+    };
+    window.removeEventListener('connectionChanged', handleConnectionChange);
+
+  }, []);
+
+  const handleProcessSchema = async () => {
+    if (!dbConfig || !extractedSchema) {
+      setError("Database configuration or schema not loaded.");
+      return;
     }
-    loadConfig()
-  }, [])
+    setLoadingMessage("Processing schema and generating recommendations...");
+    setIsLoadingSchema(true);
+    setError(null);
+    try {
+      const result = await insertSchema(dbConfig.db_type, dbConfig.table_name, dbConfig.schema_name, extractedSchema);
+      if (result.success) {
+        setSchemaProcessed(true);
+        setStep("query");
+      } else {
+        setError(result.detail || "Failed to process schema.");
+      }
+    } catch (err: any) {
+      setError(`Error processing schema: ${err.message}`);
+    } finally {
+      setIsLoadingSchema(false);
+    }
+  };
 
   const tableName = dbConfig?.table_name || ""
   const schemaColumns = extractedSchema?.[tableName] || []
@@ -241,17 +326,20 @@ export default function QueryInterface() {
   }
 
   const startOver = () => {
-    setStep("schema")
+    setStep("query")
     clearAll()
     setShowAiRecommendations(false)
     setRecommendations([])
+    localStorage.removeItem('currentDbConfig');
+    localStorage.removeItem('newConnectionSchema');
+    localStorage.removeItem('newConnectionConfig');
   }
 
-  if (loadingConfig || loadingSchema) {
+  if (loadingConfig || isLoadingSchema) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center text-foreground px-4 py-8 sm:px-6 lg:px-8">
         <Loader2 className="h-10 w-10 animate-spin" />
-        <p className="mt-4 text-lg">Loading database configuration and schema...</p>
+        <p className="mt-4 text-lg">{loadingMessage}</p>
       </main>
     )
   }
@@ -310,9 +398,16 @@ export default function QueryInterface() {
               <p className="text-muted-foreground">No schema details available for &quot;{tableName}&quot;.</p>
             )}
             <div className="flex justify-end pt-4">
-              <Button onClick={() => setStep("query")} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                Continue to Query Generation
-              </Button>
+              {!schemaProcessed ? (
+                <Button onClick={handleProcessSchema} disabled={isLoadingSchema} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  {isLoadingSchema && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Continue to Query Generation
+                </Button>
+              ) : (
+                <Button onClick={() => setStep("query")} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  Continue to Query Generation
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

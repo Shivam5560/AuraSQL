@@ -50,12 +50,36 @@ export default function NewConnectionPage() {
         throw new Error(errorData.detail || 'Failed to connect to database.');
       }
 
-      // If connection is successful, save to localStorage and redirect
-      localStorage.setItem('currentDbConfig', JSON.stringify(config));
-      router.push('/dashboard'); // Redirect to the dashboard
+      const result = await response.json();
+      const schemaString = JSON.stringify(result.schema);
+
+      // Separate password from config for storage
+      const { password, id, ...connectionDetails } = config; // Destructure 'id' to exclude it
+
+      // Save connection details to Supabase
+      const { data: connectionData, error: connectionError } = await supabase
+        .from('connections')
+        .insert({ ...connectionDetails, user_id: session?.user?.id })
+        .select()
+        .single();
+
+      if (connectionError) {
+        throw new Error(`Failed to save connection: ${connectionError.message}`);
+      }
+
+      // Save secret (password) to Supabase
+      const { error: secretError } = await supabase
+        .from('secrets')
+        .insert({ connection_id: connectionData.id, password: password });
+
+      if (secretError) {
+        throw new Error(`Failed to save secret: ${secretError.message}`);
+      }
+
+      router.push(`/query-interface?connection_id=${connectionData.id}&schema=${encodeURIComponent(schemaString)}`);
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
-      throw err;
+      // No need to throw err here, as we are handling the error display
     } finally {
       setIsLoading(false);
     }

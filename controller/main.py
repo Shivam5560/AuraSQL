@@ -107,21 +107,6 @@ async def extract_schema(request: Request):
             return schema_extractor.extract_schema_details()
         schema_details = await asyncio.wait_for(do_extract(), timeout=TIMEOUT_SECONDS)
 
-        # Insert the schema into Pinecone
-        await asyncio.get_event_loop().run_in_executor(
-            None,
-            partial(
-                insert_schema,
-                schema_json=schema_details,
-                db_type=config.get("db_type"),
-                schema_name=config.get("schema_name"),
-                table_name=config.get("table_name"),
-                pinecone_index=app_state["pinecone_index"],
-                embed_model_doc=app_state["embed_model_doc"],
-                query_engine_cache=app_state["query_engine_cache"]
-            )
-        )
-
         return {
             "success": True,
             "schema": schema_details,

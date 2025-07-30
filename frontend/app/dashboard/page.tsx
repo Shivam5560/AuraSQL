@@ -143,9 +143,7 @@ export default function Dashboard() {
       return;
     }
 
-    const fullConfig = { ...config, password: secretData?.password || '' };
-    localStorage.setItem('currentDbConfig', JSON.stringify(fullConfig));
-    router.push('/query-interface');
+    router.replace(`/query-interface?connection_id=${config.id}`);
   }
 
   const handleEdit = (id: string) => {
