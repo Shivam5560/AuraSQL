@@ -24,16 +24,20 @@ interface SectionCardsProps {
 }
 
 export function SectionCards({ totalGeneratedQueries, totalExecutedQueries, dailyStats }: SectionCardsProps) {
-  const todayStats = dailyStats[dailyStats.length - 1];
-  const yesterdayStats = dailyStats.length > 1 ? dailyStats[dailyStats.length - 2] : null;
+  const todayStats = dailyStats && dailyStats.length > 0 ? dailyStats[dailyStats.length - 1] : null;
+  const yesterdayStats = dailyStats && dailyStats.length > 1 ? dailyStats[dailyStats.length - 2] : null;
 
-  const generatedPercentageChange = yesterdayStats && yesterdayStats.generated > 0
-    ? ((todayStats.generated - yesterdayStats.generated) / yesterdayStats.generated) * 100
-    : todayStats.generated > 0 ? 100 : 0;
+  const generatedPercentageChange = todayStats
+    ? yesterdayStats && yesterdayStats.generated > 0
+      ? ((todayStats.generated - yesterdayStats.generated) / yesterdayStats.generated) * 100
+      : todayStats.generated > 0 ? 100 : 0
+    : 0;
 
-  const executedPercentageChange = yesterdayStats && yesterdayStats.executed > 0
-    ? ((todayStats.executed - yesterdayStats.executed) / yesterdayStats.executed) * 100
-    : todayStats.executed > 0 ? 100 : 0;
+  const executedPercentageChange = todayStats
+    ? yesterdayStats && yesterdayStats.executed > 0
+      ? ((todayStats.executed - yesterdayStats.executed) / yesterdayStats.executed) * 100
+      : todayStats.executed > 0 ? 100 : 0
+    : 0;
 
   const getBadgeVariant = (percentage: number) => {
     if (percentage > 0) return "success";
