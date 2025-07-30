@@ -1,41 +1,33 @@
 'use client'
 
-import { createBrowserClient } from '@supabase/ssr'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default function CallbackPage() {
+export default function AuthCallback() {
   const router = useRouter()
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookieOptions: {
-        name: 'sb-flrqfrzgvranidndzeiy-auth-token',
-        secure: true,
-        sameSite: 'Lax',
-      },
-    }
-  )
+  const supabase = createClient()
 
   useEffect(() => {
-    const handleCallback = async () => {
-      const { data } = await supabase.auth.getSession()
-      if (data.session) {
-        // User is logged in, redirect to dashboard
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        // Redirect to dashboard on successful sign-in
         router.push('/dashboard')
-      } else {
-        // Handle error or redirect to login
-        router.push('/login?error=oauth_failed')
+      } else if (event === 'USER_UPDATED') {
+        // This event fires after email confirmation
+        // Redirect to a page that informs the user and prompts them to log in
+        router.push('/login?message=Email confirmed. You can now log in.')
       }
-    }
+    })
 
-    handleCallback()
-  }, [router, supabase])
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [supabase, router])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center py-12">
-      <p>Loading...</p>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background">
+      <p className="text-foreground">Please wait while we confirm your email address...</p>
     </div>
   )
 }

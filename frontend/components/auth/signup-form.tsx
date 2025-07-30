@@ -15,6 +15,8 @@ export function SignupForm() {
   const supabase = useSupabase()
   const router = useRouter()
 
+  const [isSubmitted, setIsSubmitted] = useState(false)
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -28,15 +30,29 @@ export function SignupForm() {
 
     if (error) {
       console.error('Supabase signup error:', error)
-    }
-
-    if (error) {
       setError(error.message)
     } else {
-      // Optionally, redirect to a verification page or login page
-      router.push('/login?message=Check your email to confirm your account')
+      setIsSubmitted(true) // Show confirmation message
     }
     setLoading(false)
+  }
+
+  if (isSubmitted) {
+    return (
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader>
+          <CardTitle className="text-2xl">Confirm Your Email</CardTitle>
+          <CardDescription>
+            We've sent a confirmation link to <strong>{email}</strong>. Please check your inbox to activate your account.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={() => router.push('/login')} className="w-full">
+            Go to Login
+          </Button>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
