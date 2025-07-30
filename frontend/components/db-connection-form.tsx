@@ -126,7 +126,8 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
               value={selectedConnectionId || ""}
               onValueChange={async (value) => {
                 setSelectedConnectionId(value)
-                if (value === "new") {
+                if (value === "new" || !value) {
+                  setSelectedConnectionId("new")
                   setDbType("postgresql")
                   setIp("localhost")
                   setPort("5432")

@@ -52,7 +52,7 @@ export default function NewConnectionPage() {
 
       // If connection is successful, save to localStorage and redirect
       localStorage.setItem('currentDbConfig', JSON.stringify(config));
-      router.push('/'); // Redirect to the main query interface
+      router.push('/dashboard'); // Redirect to the dashboard
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
       throw err;
