@@ -44,7 +44,8 @@ interface ApiResponse<T = any> {
 }
 
 // Replace with your actual backend URL
-const API_BASE_URL = 'http://localhost:8000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+ 
 
 export async function extractSchema(config: DbConfig & { table_name: string }): Promise<ApiResponse<ExtractedSchema>> {
   try {
