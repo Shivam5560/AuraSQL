@@ -2,13 +2,10 @@ import json
 from rag.QueryEngine import generate_query_engine
 from utils.prompt_recommendations import prompt
 import logging
-import asyncio # Import asyncio
+import asyncio
 
-# Change to 'async def'
 async def recommendations(
-    db_type: str,
-    schema_name: str,
-    table_name: str,
+    namespace: str,
     *,
     pinecone_index,
     llm,
@@ -19,12 +16,9 @@ async def recommendations(
     Generates recommendations by asynchronously calling the query engine.
     """
     try:
-        # Add 'await' to the call
         recommendations_json = await generate_query_engine(
             user_query=prompt,
-            db_type=db_type,
-            schema_name=schema_name,
-            table_name=table_name,
+            namespace=namespace,
             pinecone_index=pinecone_index,
             llm=llm,
             embed_model_query=embed_model_query,
@@ -34,7 +28,7 @@ async def recommendations(
         if recommendations_json is None:
             raise ValueError("Received no response from the query engine.")
 
-        return json.loads(recommendations_json) # .strip() is handled by clean_json
+        return json.loads(recommendations_json)
 
     except Exception as e:
         logging.error(f"An unexpected error occurred in recommendations: {e}")

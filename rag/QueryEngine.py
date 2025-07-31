@@ -2,6 +2,7 @@
 
 import os
 import json
+import hashlib
 import sqlparse
 from dotenv import load_dotenv
 from llama_index.core import (
@@ -23,36 +24,43 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 # Load environment variables once, although they should be loaded by main.py
 load_dotenv()
 
+def create_namespace_from_tables(db_type: str, schema_name: str, table_names: list[str]) -> str:
+    """Creates a unique, deterministic namespace ID from a list of table names."""
+    sorted_tables = "_".join(sorted(table_names))
+    # Use a hash to keep the namespace short and manageable
+    hasher = hashlib.sha256(sorted_tables.encode())
+    return f"{db_type}_{schema_name}__{hasher.hexdigest()[:16]}"
+
 def insert_schema(
     schema_json: dict,
-    db_type: str,
-    schema_name: str,
-    table_name: str,
+    namespace: str,
     *,
     pinecone_index,
     embed_model_doc,
     query_engine_cache: dict
 ):
     """
-    Inserts a schema into Pinecone using pre-initialized clients.
+    Inserts a combined schema for multiple tables into a specific Pinecone namespace.
     """
     try:
-        logging.info("Starting schema insertion process...")
-        namespace = f"{db_type}_{schema_name}_{table_name}"
+        logging.info(f"Starting schema insertion process for namespace: {namespace}")
 
         stats = pinecone_index.describe_index_stats()
         if len(stats["namespaces"]) >= 100:
             logging.warning("Namespace limit is close to 100.")
 
         if namespace in stats["namespaces"]:
-            logging.info(f"Clearing vectors in namespace: {namespace}")
+            logging.info(f"Clearing vectors in existing namespace: {namespace}")
             pinecone_index.delete(delete_all=True, namespace=namespace)
 
         Settings.embed_model = embed_model_doc
         logging.info("Document embeddings model set.")
 
-        schema_text = json.dumps(schema_json)
-        documents = [Document(text=schema_text)]
+        # Create one document per table to improve retrieval accuracy
+        documents = [
+            Document(text=f"Table `{table_name}`: {json.dumps(schema)}")
+            for table_name, schema in schema_json.items()
+        ]
 
         text_splitter = SentenceSplitter(chunk_size=1536, chunk_overlap=100)
         nodes = text_splitter.get_nodes_from_documents(documents)
@@ -75,9 +83,7 @@ def insert_schema(
 
 async def generate_query_engine(
     user_query: str,
-    db_type: str,
-    schema_name: str,
-    table_name: str,
+    namespace: str,
     *,
     pinecone_index,
     llm,
@@ -86,10 +92,8 @@ async def generate_query_engine(
     max_retries: int = 2
 ):
     """
-    Generates a query response with self-correction and explainability.
+    Generates a query response using a cached or new query engine from a specific namespace.
     """
-    namespace = f"{db_type}_{schema_name}_{table_name}"
-    
     if namespace in query_engine_cache:
         logging.info(f"Using cached query engine for namespace: {namespace}")
         query_engine = query_engine_cache[namespace]
@@ -118,7 +122,6 @@ async def generate_query_engine(
             response_json = json.loads(cleaned_response_str)
             sql_query = response_json.get("sql")
 
-            # 1. Syntax Validation
             parsed = sqlparse.parse(sql_query)
             if not parsed or parsed[0].get_type() == 'UNKNOWN':
                 raise ValueError("Generated SQL has invalid syntax.")
@@ -128,10 +131,9 @@ async def generate_query_engine(
 
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             logging.warning(f"Attempt {attempt + 1} failed: {e}. Retrying...")
-            # Modify the user query to include the error for self-correction
             user_query = (
-                f"{user_query}\n\nPrevious attempt failed. Please fix the following error and regenerate the JSON output. "
-                f"Error: {e}. Ensure the SQL is syntactically correct and the JSON format is perfect."
+                f"{user_query}\n\nPrevious attempt failed. Please fix the following error: {e}. "
+                f"Regenerate the JSON, ensuring the SQL is valid and the format is correct."
             )
             if attempt + 1 == max_retries:
                 logging.error("Max retries reached. Failed to generate valid SQL.")
