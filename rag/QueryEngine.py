@@ -2,6 +2,7 @@
 
 import os
 import json
+import sqlparse
 from dotenv import load_dotenv
 from llama_index.core import (
     VectorStoreIndex,
@@ -27,7 +28,7 @@ def insert_schema(
     db_type: str,
     schema_name: str,
     table_name: str,
-    *,  # The asterisk forces subsequent arguments to be keyword-only
+    *,
     pinecone_index,
     embed_model_doc,
     query_engine_cache: dict
@@ -39,18 +40,14 @@ def insert_schema(
         logging.info("Starting schema insertion process...")
         namespace = f"{db_type}_{schema_name}_{table_name}"
 
-        # Check the number of namespaces
         stats = pinecone_index.describe_index_stats()
         if len(stats["namespaces"]) >= 100:
             logging.warning("Namespace limit is close to 100.")
-            # Consider a more sophisticated eviction strategy if needed
 
-        # Check if the specific namespace exists before clearing
         if namespace in stats["namespaces"]:
             logging.info(f"Clearing vectors in namespace: {namespace}")
             pinecone_index.delete(delete_all=True, namespace=namespace)
 
-        # Use the pre-initialized document embedding model
         Settings.embed_model = embed_model_doc
         logging.info("Document embeddings model set.")
 
@@ -64,8 +61,6 @@ def insert_schema(
         storage_context = StorageContext.from_defaults(vector_store=vector_store)
         VectorStoreIndex(nodes=nodes, storage_context=storage_context)
         
-        # If a query engine for this namespace exists in the cache, remove it
-        # so it gets recreated with the new schema on the next query.
         if namespace in query_engine_cache:
             del query_engine_cache[namespace]
             logging.info(f"Removed outdated query engine from cache for namespace: {namespace}")
@@ -83,55 +78,67 @@ async def generate_query_engine(
     db_type: str,
     schema_name: str,
     table_name: str,
-    *, # The asterisk forces subsequent arguments to be keyword-only
+    *,
     pinecone_index,
     llm,
     embed_model_query,
-    query_engine_cache: dict
+    query_engine_cache: dict,
+    max_retries: int = 2
 ):
     """
-    Generates a query response using a cached or new query engine.
-    Uses pre-initialized clients for performance.
+    Generates a query response with self-correction and explainability.
     """
-    try:
-        namespace = f"{db_type}_{schema_name}_{table_name}"
+    namespace = f"{db_type}_{schema_name}_{table_name}"
+    
+    if namespace in query_engine_cache:
+        logging.info(f"Using cached query engine for namespace: {namespace}")
+        query_engine = query_engine_cache[namespace]
+    else:
+        logging.info(f"Creating new query engine for namespace: {namespace}")
+        Settings.llm = llm
+        Settings.embed_model = embed_model_query
 
-        # Check if a query engine for this namespace is already cached
-        if namespace in query_engine_cache:
-            logging.info(f"Using cached query engine for namespace: {namespace}")
-            query_engine = query_engine_cache[namespace]
-        else:
-            logging.info(f"Creating new query engine for namespace: {namespace}")
-            
-            # Use the pre-initialized clients passed as arguments
-            Settings.llm = llm
-            Settings.embed_model = embed_model_query
+        vector_store = PineconeVectorStore(pinecone_index=pinecone_index, namespace=namespace)
+        index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
+        retriever = index.as_retriever(similarity_top_k=5)
+        
+        query_engine = RetrieverQueryEngine.from_args(
+            retriever=retriever,
+            llm=Settings.llm
+        )
+        query_engine_cache[namespace] = query_engine
+        logging.info(f"New query engine created and cached for namespace: {namespace}")
 
-            vector_store = PineconeVectorStore(pinecone_index=pinecone_index, namespace=namespace)
-            index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
-            retriever = index.as_retriever(similarity_top_k=5)
+    for attempt in range(max_retries):
+        try:
+            logging.info(f"Executing query attempt {attempt + 1}...")
+            response = await query_engine.aquery(user_query)
             
-            query_engine = RetrieverQueryEngine.from_args(
-                retriever=retriever,
-                llm=Settings.llm
+            cleaned_response_str = clean_json(response.response)
+            response_json = json.loads(cleaned_response_str)
+            sql_query = response_json.get("sql")
+
+            # 1. Syntax Validation
+            parsed = sqlparse.parse(sql_query)
+            if not parsed or parsed[0].get_type() == 'UNKNOWN':
+                raise ValueError("Generated SQL has invalid syntax.")
+
+            logging.info("Query generated and validated successfully.")
+            return cleaned_response_str.strip()
+
+        except (json.JSONDecodeError, ValueError, KeyError) as e:
+            logging.warning(f"Attempt {attempt + 1} failed: {e}. Retrying...")
+            # Modify the user query to include the error for self-correction
+            user_query = (
+                f"{user_query}\n\nPrevious attempt failed. Please fix the following error and regenerate the JSON output. "
+                f"Error: {e}. Ensure the SQL is syntactically correct and the JSON format is perfect."
             )
-            
-            # Cache the newly created query engine for future use
-            query_engine_cache[namespace] = query_engine
-            logging.info(f"New query engine created and cached for namespace: {namespace}")
+            if attempt + 1 == max_retries:
+                logging.error("Max retries reached. Failed to generate valid SQL.")
+                return None
+        except Exception as e:
+            logging.error(f"An unexpected error occurred in generate_query_engine: {e}")
+            traceback.print_exc()
+            return None
 
-        logging.info("Executing query...")
-        response = await query_engine.aquery(user_query)
-
-        logging.info("Query executed successfully.")
-        logging.info(f"Response: {response}")
-        
-        cleaned_response = clean_json(response.response)
-        logging.info("Response cleaned and formatted successfully.")
-        
-        return cleaned_response.strip()
-
-    except Exception as e:
-        logging.error(f"An error occurred in generate_query_engine: {e}")
-        traceback.print_exc()
-        return None
+    return None

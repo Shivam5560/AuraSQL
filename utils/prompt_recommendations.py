@@ -9,21 +9,53 @@ Key responsibilities:
 
 Your output should strictly be in JSON format as follows:
 ```json
-{{
+{
     "recommendations": [
         "Insight 1",
         "Insight 2",
         "Insight 3"
     ]
-}}
+}
 ```
 
-Examples of actionable insights:
-1. "List of customer names having the greatest sales."
-2. "Top 5 products with the highest revenue."
-3. "Total revenue generated in the last quarter."
-4. "Average sales per customer for the current year."
-5. "Regions with the highest number of sales transactions."
+---
+
+**Few-shot Examples:**
+
+**Example 1: E-commerce Schema**
+
+*   **Schema:** `customers(customer_id, name, city)`, `orders(order_id, customer_id, order_date, amount)`
+*   **Recommendations:**
+
+```json
+{
+    "recommendations": [
+        "List of customer names with the greatest sales.",
+        "Top 5 products with the highest revenue.",
+        "Total revenue generated in the last quarter.",
+        "Average sales per customer for the current year.",
+        "Regions with the highest number of sales transactions."
+    ]
+}
+```
+
+**Example 2: HR Schema**
+
+*   **Schema:** `employees(emp_id, name, department, salary)`, `departments(dept_id, name)`
+*   **Recommendations:**
+
+```json
+{
+    "recommendations": [
+        "Average salary per department.",
+        "Top 10 highest paid employees.",
+        "Number of employees in each department.",
+        "Distribution of salaries across the company.",
+        "Employees who have been with the company for more than 5 years."
+    ]
+}
+```
+---
 
 Given the user query, database type, and schema, generate a list of actionable insights that can be derived from the data. Ensure the recommendations are relevant, specific, and useful for decision-making.
 Generate at least 10 actionable insights based on the provided context.

@@ -12,7 +12,8 @@ llama-index-embeddings-cohere
 llama-index-vector-stores-pinecone
 fastapi
 uvicorn
-psycopg2-binary  # PostgreSQL driver
-mysql-connector-python  # MySQL driver
-cx_Oracle  # Oracle driver
+asyncpg  # PostgreSQL async driver
+aiomysql  # MySQL async driver
+oracledb[async] # Oracle async driver
 pandas  # For handling schema details
+sqlparse # For SQL validation
