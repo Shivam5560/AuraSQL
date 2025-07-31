@@ -34,25 +34,8 @@ export default function NewConnectionPage() {
   const handleSubmit = async (config: DbConfig) => {
     setIsLoading(true)
     setError(null)
-    console.log("Sending config to /connect:", config)
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/connect`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(config),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to connect to database.');
-      }
-
-      const result = await response.json();
-      const schemaString = JSON.stringify(result.schema);
-
       // Separate password from config for storage
       const { password, id, ...connectionDetails } = config; // Destructure 'id' to exclude it
 
@@ -76,10 +59,9 @@ export default function NewConnectionPage() {
         throw new Error(`Failed to save secret: ${secretError.message}`);
       }
 
-      router.push(`/query-interface?connection_id=${connectionData.id}&schema=${encodeURIComponent(schemaString)}`);
+      router.push(`/query-interface?connection_id=${connectionData.id}`);
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.');
-      // No need to throw err here, as we are handling the error display
     } finally {
       setIsLoading(false);
     }

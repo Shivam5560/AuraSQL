@@ -8,7 +8,6 @@ export interface DbConfig {
   password?: string
   database: string
   schema_name: string
-  table_name: string
 }
 
 export interface SchemaColumn {

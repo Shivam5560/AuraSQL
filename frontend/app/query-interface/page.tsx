@@ -8,10 +8,22 @@ import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
-import { Check, Loader2 } from "lucide-react"
-import { getRecommendations, generateQuery, executeQuery, extractSchema, insertSchema, logGeneratedQuery, logExecutedQuery } from "@/lib/api"
+import { Check, Loader2, Download } from "lucide-react"
+import { 
+  getRecommendations, 
+  generateQuery, 
+  executeQuery, 
+  extractSchema, 
+  createMultiTableContext, 
+  listTables, 
+  logGeneratedQuery, 
+  logExecutedQuery 
+} from "@/lib/api"
 import { createClient } from '@/lib/supabase/client'
 import { Session } from '@supabase/supabase-js'
+import CreatableSelect from 'react-select/creatable';
+
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface DbConfig {
   db_type: string
@@ -21,7 +33,6 @@ interface DbConfig {
   password?: string
   database: string
   schema_name: string
-  table_name: string
 }
 
 interface SchemaColumn {
@@ -41,32 +52,45 @@ interface ExtractedSchema {
   [tableName: string]: SchemaColumn[]
 }
 
+interface GenerateQueryResponse {
+  sql: string
+  explanation: string
+  source_tables: string[]
+}
+
 export default function QueryInterface() {
   const router = useRouter()
   const [dbConfig, setDbConfig] = useState<DbConfig | null>(null)
-  const [extractedSchema, setExtractedSchema] = useState<ExtractedSchema | null>(null)
+  const [availableTables, setAvailableTables] = useState<{ label: string; value: string }[]>([])
+  const [selectedTables, setSelectedTables] = useState<{ label: string; value: string }[]>([])
+  const [namespaceId, setNamespaceId] = useState<string | null>(null)
   const [loadingConfig, setLoadingConfig] = useState(true)
-  const [isLoadingSchema, setIsLoadingSchema] = useState(false)
+  const [isLoadingTables, setIsLoadingTables] = useState(false)
+  const [isLoadingContext, setIsLoadingContext] = useState(false)
   const [configError, setConfigError] = useState<string | null>(null)
 
   const [recommendations, setRecommendations] = useState<string[]>([])
   const [selectedRecommendations, setSelectedRecommendations] = useState<string[]>([])
   const [naturalLanguageQuery, setNaturalLanguageQuery] = useState("")
-  const [generatedSql, setGeneratedSql] = useState("")
+  const [generatedSql, setGeneratedSql] = useState<GenerateQueryResponse | null>(null)
+  const [editableSql, setEditableSql] = useState<string>("")
   const [queryResults, setQueryResults] = useState<Record<string, any>[]>([])
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
   const [isLoadingQueryGeneration, setIsLoadingQueryGeneration] = useState(false)
   const [isLoadingQueryExecution, setIsLoadingQueryExecution] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [step, setStep] = useState<'schema' | 'query' | 'results'>("schema")
+  const [step, setStep] = useState<'selectTables' | 'query' | 'generatedSqlView' | 'results'>("selectTables")
   const [showAiRecommendations, setShowAiRecommendations] = useState(false)
   const [isLoadingRecommendationsDelayed, setIsLoadingRecommendationsDelayed] = useState(false)
-  const [loadingMessage, setLoadingMessage] = useState("Loading database configuration and schema...");
+  const [loadingMessage, setLoadingMessage] = useState("Loading database configuration...");
+  const [resultsDisplayLimit, setResultsDisplayLimit] = useState(10); // State for limiting results
 
   const supabase = createClient()
   const [session, setSession] = useState<Session | null>(null)
   const [currentQueryId, setCurrentQueryId] = useState<string | null>(null)
   const recommendationsCache = useRef<Record<string, string[]>>({})
+
+  const effectRan = useRef(false); // Ref to track if useEffect has run
 
   useEffect(() => {
     const getSession = async () => {
@@ -76,125 +100,123 @@ export default function QueryInterface() {
     getSession()
   }, [supabase])
 
-  const [schemaProcessed, setSchemaProcessed] = useState(false);
-
   useEffect(() => {
-    const loadConfig = async () => {
-      setLoadingConfig(true);
-      // Reset previous state
-      setExtractedSchema(null);
-      setDbConfig(null);
-      setConfigError(null);
-      setSchemaProcessed(false);
+    if (effectRan.current === false) { // Only run once
+      const loadConfigAndTables = async () => {
+        setLoadingConfig(true);
+        setConfigError(null);
+        setDbConfig(null);
+        setAvailableTables([]);
+        setSelectedTables([]);
+        setNamespaceId(null);
+        setStep("selectTables");
 
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const configParam = urlParams.get('config');
-        const schemaParam = urlParams.get('schema');
+        try {
+          const urlParams = new URLSearchParams(window.location.search);
+          const configParam = urlParams.get('config');
 
-        let currentConfig: DbConfig | null = null;
-        let currentSchema: ExtractedSchema | null = null;
+          let currentConfig: DbConfig | null = null;
 
-        if (configParam && schemaParam) {
-          currentConfig = JSON.parse(decodeURIComponent(configParam));
-          currentSchema = JSON.parse(decodeURIComponent(schemaParam));
-          // Clear the URL parameters to prevent issues on subsequent reloads
-          router.replace(window.location.pathname, undefined, { shallow: true });
-        } else {
-          const connectionIdParam = urlParams.get('connection_id');
-          if (connectionIdParam) {
-            const { data: connectionData, error: connectionError } = await supabase
-              .from('connections')
-              .select('*')
-              .eq('id', connectionIdParam)
-              .single();
-
-            if (connectionError) {
-              throw new Error(`Failed to fetch connection details: ${connectionError.message}`);
-            }
-
-            const { data: secretData, error: secretError } = await supabase
-              .from('secrets')
-              .select('password')
-              .eq('connection_id', connectionIdParam)
-              .single();
-
-            if (secretError) {
-              throw new Error(`Failed to fetch secret for connection: ${secretError.message}`);
-            }
-
-            currentConfig = { ...connectionData, password: secretData?.password || '' };
-          }
-        }
-
-        if (currentConfig) {
-          setDbConfig(currentConfig);
-          if (currentSchema) {
-            setExtractedSchema(currentSchema);
-            setSchemaProcessed(false); // Needs processing
+          if (configParam) {
+            currentConfig = JSON.parse(decodeURIComponent(configParam));
+            // Clear the URL parameters to prevent issues on subsequent reloads
+            router.replace(window.location.pathname, undefined, { shallow: true });
           } else {
-            setIsLoadingSchema(true);
-            const schemaResult = await extractSchema(currentConfig);
-            if (schemaResult.success && schemaResult.schema) {
-              setExtractedSchema(schemaResult.schema);
-              setSchemaProcessed(false); // Always require processing
-            } else {
-              setConfigError(schemaResult.detail || "Failed to fetch schema.");
+            const connectionIdParam = urlParams.get('connection_id');
+            if (connectionIdParam) {
+              const { data: connectionData, error: connectionError } = await supabase
+                .from('connections')
+                .select('*')
+                .eq('id', connectionIdParam)
+                .single();
+
+              if (connectionError) {
+                throw new Error(`Failed to fetch connection details: ${connectionError.message}`);
+              }
+
+              const { data: secretData, error: secretError } = await supabase
+                .from('secrets')
+                .select('password')
+                .eq('connection_id', connectionIdParam)
+                .single();
+
+              if (secretError) {
+                throw new Error(`Failed to fetch secret for connection: ${secretError.message}`);
+              }
+
+              currentConfig = { 
+                db_type: connectionData.db_type,
+                ip: connectionData.ip,
+                port: connectionData.port,
+                username: connectionData.username,
+                password: secretData?.password || '',
+                database: connectionData.database,
+                schema_name: connectionData.schema_name,
+              };
             }
-            setIsLoadingSchema(false);
           }
-        } else {
-          setConfigError("No database configuration found. Please connect to a database first.");
+
+          if (currentConfig) {
+            setDbConfig(currentConfig);
+            setLoadingMessage("Fetching available tables...");
+            setIsLoadingTables(true);
+            const listTablesResult = await listTables(currentConfig);
+            if (listTablesResult.success && listTablesResult.table_names) {
+              setAvailableTables(listTablesResult.table_names.map(name => ({ label: name, value: name })));
+            } else {
+              setConfigError(listTablesResult.detail || "Failed to fetch table list.");
+            }
+            setIsLoadingTables(false);
+          } else {
+            setConfigError("No database configuration found. Please connect to a database first.");
+          }
+        } catch (e: any) {
+          setConfigError(`Error loading database configuration or tables: ${e.message}`);
+        } finally {
+          setLoadingConfig(false);
         }
-      } catch (e: any) {
-        setConfigError(`Error loading database configuration: ${e.message}`);
-      } finally {
-        setLoadingConfig(false);
-      }
-    };
+      };
 
-    loadConfig();
-
-    // Remove the event listener as it's no longer needed
-    const handleConnectionChange = () => {
-      // This listener is now redundant, but we keep it to remove it cleanly
-    };
-    window.removeEventListener('connectionChanged', handleConnectionChange);
+      loadConfigAndTables();
+      effectRan.current = true; // Mark effect as run
+    }
 
   }, []);
 
-  const handleProcessSchema = async () => {
-    if (!dbConfig || !extractedSchema) {
-      setError("Database configuration or schema not loaded.");
+  const handleCreateMultiTableContext = async () => {
+    if (!dbConfig || selectedTables.length === 0) {
+      setError("Please select at least one table.");
       return;
     }
-    setLoadingMessage("Processing schema and generating recommendations...");
-    setIsLoadingSchema(true);
+    setLoadingMessage("Creating multi-table context...");
+    setIsLoadingContext(true);
     setError(null);
     try {
-      const result = await insertSchema(dbConfig.db_type, dbConfig.table_name, dbConfig.schema_name, extractedSchema);
-      if (result.success) {
-        setSchemaProcessed(true);
+      const tableNames = selectedTables.map(t => t.value);
+      const result = await createMultiTableContext({
+        ...dbConfig,
+        table_names: tableNames,
+      });
+
+      if (result.success && result.namespace_id) {
+        setNamespaceId(result.namespace_id);
         setStep("query");
       } else {
-        setError(result.detail || "Failed to process schema.");
+        setError(result.detail || "Failed to create multi-table context.");
       }
     } catch (err: any) {
-      setError(`Error processing schema: ${err.message}`);
+      setError(`Error creating multi-table context: ${err.message}`);
     } finally {
-      setIsLoadingSchema(false);
+      setIsLoadingContext(false);
     }
   };
-
-  const tableName = dbConfig?.table_name || ""
-  const schemaColumns = extractedSchema?.[tableName] || []
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
     const fetchRecommendations = async () => {
-      if (!dbConfig) return; // Ensure dbConfig is available
+      if (!namespaceId) return; 
 
-      const cacheKey = `${dbConfig.db_type}-${dbConfig.table_name}-${dbConfig.schema_name}`;
+      const cacheKey = namespaceId;
       if (recommendationsCache.current[cacheKey]) {
         setRecommendations(recommendationsCache.current[cacheKey]);
         setIsLoadingRecommendations(false);
@@ -205,10 +227,10 @@ export default function QueryInterface() {
       setIsLoadingRecommendations(true);
       setError(null);
       try {
-        const result = await getRecommendations(dbConfig.db_type, dbConfig.table_name, dbConfig.schema_name);
+        const result = await getRecommendations(namespaceId);
         if (result.success && result.recommendations) {
           setRecommendations(result.recommendations);
-          recommendationsCache.current[cacheKey] = result.recommendations; // Cache the results
+          recommendationsCache.current[cacheKey] = result.recommendations; 
         } else {
           setError(result.detail || "Failed to fetch recommendations.");
         }
@@ -220,15 +242,15 @@ export default function QueryInterface() {
       }
     };
 
-    if (showAiRecommendations && dbConfig?.table_name && dbConfig?.schema_name) {
+    if (showAiRecommendations && namespaceId) {
       setIsLoadingRecommendationsDelayed(true);
       timer = setTimeout(() => {
         fetchRecommendations();
-      }, 5000);
+      }, 2000);
     }
 
     return () => clearTimeout(timer);
-  }, [showAiRecommendations, dbConfig, recommendationsCache]); // Depend on dbConfig and recommendationsCache
+  }, [showAiRecommendations, namespaceId, recommendationsCache]);
 
   const toggleRecommendationSelection = (rec: string) => {
     setSelectedRecommendations((prev) =>
@@ -241,13 +263,13 @@ export default function QueryInterface() {
   }
 
   const handleGenerateQuery = async () => {
-    if (!dbConfig) {
-      setError("Database configuration not loaded.");
+    if (!namespaceId) {
+      setError("Multi-table context not created. Please select tables first.");
       return;
     }
     setIsLoadingQueryGeneration(true)
     setError(null)
-    setGeneratedSql("")
+    setGeneratedSql(null)
     setQueryResults([])
     try {
       let queryInput = naturalLanguageQuery;
@@ -262,13 +284,16 @@ export default function QueryInterface() {
       }
 
       const result = await generateQuery(
-        dbConfig.db_type,
-        dbConfig.table_name,
-        dbConfig.schema_name,
+        namespaceId,
         queryInput,
       )
       if (result.success && result.sql) {
-        setGeneratedSql(result.sql)
+        setGeneratedSql({ 
+          sql: result.sql,
+          explanation: result.explanation || "No explanation provided.",
+          source_tables: result.source_tables || []
+        })
+        setEditableSql(result.sql) // Set editableSql here
         setStep("generatedSqlView")
         if (session?.user?.id) {
           const logResult = await logGeneratedQuery(session.user.id, queryInput, result.sql)
@@ -289,19 +314,26 @@ export default function QueryInterface() {
   }
 
   const handleExecuteQuery = async () => {
-    if (!generatedSql || !dbConfig) {
-      setError("Please generate an SQL query and ensure database configuration is loaded.");
+    if (!editableSql || !dbConfig || selectedTables.length === 0) {
+      setError("Please generate an SQL query and ensure database configuration and selected tables are loaded.");
       return
     }
     setIsLoadingQueryExecution(true)
     setError(null)
     setQueryResults([])
     try {
-      const result = await executeQuery(dbConfig, generatedSql)
+      // For executeQuery, we need the original DbConfig and one of the table names
+      // as the backend expects it for direct SQL execution.
+      // We can pick the first selected table's name, or pass an empty string if not strictly needed by backend
+      const configForExecution = {
+        ...dbConfig,
+        table_name: selectedTables[0].value, 
+      };
+      const result = await executeQuery(configForExecution, editableSql)
       if (result.success && result.data) {
         setQueryResults(result.data)
         if (session?.user?.id && currentQueryId) {
-          const logResult = await logExecutedQuery(currentQueryId, session.user.id, naturalLanguageQuery, generatedSql)
+          const logResult = await logExecutedQuery(currentQueryId, session.user.id, naturalLanguageQuery, editableSql)
           if (!logResult.success) {
             console.error("Failed to log executed query:", logResult.detail)
           }
@@ -317,25 +349,60 @@ export default function QueryInterface() {
     }
   }
 
+  const handleDownloadSql = () => {
+    if (!editableSql) return;
+    const blob = new Blob([editableSql], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'query.sql';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadCsv = () => {
+    if (queryResults.length === 0) return;
+    const headers = Object.keys(queryResults[0]);
+    const csv = [headers.join(','), ...queryResults.map(row => headers.map(fieldName => JSON.stringify(row[fieldName])).join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'results.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  
+
   const clearAll = () => {
-    setGeneratedSql("")
+    setGeneratedSql(null)
     setQueryResults([])
     setNaturalLanguageQuery("")
     setError(null)
     setSelectedRecommendations([])
+    setEditableSql("")
   }
 
-  const startOver = () => {
+  const resetQueryState = () => {
+    setGeneratedSql(null)
+    setQueryResults([])
+    setNaturalLanguageQuery("")
+    setError(null)
+    setSelectedRecommendations([])
+    setEditableSql("")
     setStep("query")
-    clearAll()
-    setShowAiRecommendations(false)
-    setRecommendations([])
-    localStorage.removeItem('currentDbConfig');
-    localStorage.removeItem('newConnectionSchema');
-    localStorage.removeItem('newConnectionConfig');
   }
 
-  if (loadingConfig || isLoadingSchema) {
+  const resetToTableSelection = () => {
+    router.push('/dashboard')
+  }
+
+  if (loadingConfig || isLoadingTables || isLoadingContext) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center text-foreground px-4 py-8 sm:px-6 lg:px-8">
         <Loader2 className="h-10 w-10 animate-spin" />
@@ -348,66 +415,124 @@ export default function QueryInterface() {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center text-foreground px-4 py-8 sm:px-6 lg:px-8">
         <p className="text-lg text-red-500">{configError}</p>
-        <Button onClick={() => window.location.href = '/dashboard'} className="mt-4">Go to Dashboard</Button>
+        <Button onClick={() => router.push('/dashboard')} className="mt-4">Go to Dashboard</Button>
       </main>
     )
   }
 
-  if (!dbConfig || !extractedSchema) {
+  if (!dbConfig) {
     return (
       <main className="min-h-screen flex flex-col items-center justify-center text-foreground px-4 py-8 sm:px-6 lg:px-8">
-        <p className="text-lg text-red-500">Database configuration or schema not loaded. Please try again from the dashboard.</p>
-        <Button onClick={() => window.location.href = '/dashboard'} className="mt-4">Go to Dashboard</Button>
+        <p className="text-lg text-red-500">Database configuration not loaded. Please try again from the dashboard.</p>
+        <Button onClick={() => router.push('/dashboard')} className="mt-4">Go to Dashboard</Button>
       </main>
     )
   }
 
   return (
     <div className="grid gap-6 w-[90%] mx-auto py-8"> 
-      {step === "schema" && (
+      {step === "selectTables" && (
         <Card>
           <CardHeader>
-            <CardTitle>Extracted Schema for &quot;{tableName}&quot;</CardTitle>
-            <CardDescription>Review the schema details for the selected table.</CardDescription>
+            <CardTitle>Select Tables for Query Context</CardTitle>
+            <CardDescription>Choose the tables relevant to your queries. Only selected tables' schemas will be used by the AI.</CardDescription>
           </CardHeader>
           <CardContent>
-            {schemaColumns.length > 0 ? (
-              <div className="overflow-x-auto rounded-lg border border-border/50">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/20">
-                      <TableHead>Column Name</TableHead>
-                      <TableHead>Data Type</TableHead>
-                      <TableHead>Nullable</TableHead>
-                      <TableHead>Constraint</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {schemaColumns.map((col, index) => (
-                      <TableRow key={index}>
-                        <TableCell className="font-medium">{col.column_name}</TableCell>
-                        <TableCell>{col.data_type}</TableCell>
-                        <TableCell>{col.is_nullable === "NO" ? "No" : "Yes"}</TableCell>
-                        <TableCell>{col.constraint_type || "N/A"}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+            {availableTables.length > 0 ? (
+              <div className="space-y-4">
+                <Label htmlFor="table-select">Available Tables</Label>
+                <CreatableSelect
+                  isMulti
+                  options={availableTables}
+                  value={selectedTables}
+                  onChange={setSelectedTables}
+                  onCreateOption={(inputValue) => {
+                    const newOption = { label: inputValue, value: inputValue };
+                    setSelectedTables([...selectedTables, newOption]);
+                    setAvailableTables([...availableTables, newOption]);
+                  }}
+                  formatCreateLabel={(inputValue) => `Add "${inputValue}"`}
+                  placeholder="Type or select table names (e.g., sales, customers)"
+                  noOptionsMessage={() => "No more tables to select"}
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  // Custom styles to match shadcn/ui input
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      backgroundColor: 'hsl(var(--card)/50%)',
+                      borderColor: 'hsl(var(--border)/50%)',
+                      color: 'hsl(var(--foreground))',
+                      minHeight: '40px',
+                      boxShadow: 'none',
+                      '&:hover': {
+                        borderColor: 'hsl(var(--border))',
+                      },
+                    }),
+                    input: (base) => ({
+                      ...base,
+                      color: 'hsl(var(--foreground))',
+                    }),
+                    placeholder: (base) => ({
+                      ...base,
+                      color: 'hsl(var(--muted-foreground))',
+                    }),
+                    singleValue: (base) => ({
+                      ...base,
+                      color: 'hsl(var(--foreground))',
+                    }),
+                    multiValue: (base) => ({
+                      ...base,
+                      backgroundColor: 'hsl(var(--primary))',
+                      color: 'hsl(var(--primary-foreground))',
+                    }),
+                    multiValueLabel: (base) => ({
+                      ...base,
+                      color: 'hsl(var(--primary-foreground))',
+                    }),
+                    multiValueRemove: (base) => ({
+                      ...base,
+                      color: 'hsl(var(--primary-foreground))',
+                      '&:hover': {
+                        backgroundColor: 'hsl(var(--primary)/80%)',
+                        color: 'hsl(var(--primary-foreground))',
+                      },
+                    }),
+                    menu: (base) => ({
+                      ...base,
+                      backgroundColor: 'hsl(var(--card))',
+                      borderColor: 'hsl(var(--border))',
+                      boxShadow: 'hsl(var(--shadow))',
+                    }),
+                    option: (base, state) => ({
+                      ...base,
+                      backgroundColor: state.isFocused ? 'hsl(var(--accent))' : 'hsl(var(--card))',
+                      color: 'hsl(var(--foreground))',
+                      '&:active': {
+                        backgroundColor: 'hsl(var(--accent))',
+                      },
+                    }),
+                  }}
+                />
+                <div className="flex justify-end pt-4">
+                  <Button 
+                    onClick={handleCreateMultiTableContext} 
+                    disabled={selectedTables.length === 0 || isLoadingContext}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    {isLoadingContext && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Create Query Context
+                  </Button>
+                </div>
               </div>
             ) : (
-              <p className="text-muted-foreground">No schema details available for &quot;{tableName}&quot;.</p>
+              <p className="text-muted-foreground">No tables found for the selected database/schema.</p>
             )}
+            {error && <p className="text-sm text-red-500 mt-4">{error}</p>}
             <div className="flex justify-end pt-4">
-              {!schemaProcessed ? (
-                <Button onClick={handleProcessSchema} disabled={isLoadingSchema} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                  {isLoadingSchema && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Continue to Query Generation
-                </Button>
-              ) : (
-                <Button onClick={() => setStep("query")} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                  Continue to Query Generation
-                </Button>
-              )}
+              <Button onClick={() => router.push('/dashboard')} variant="outline">
+                Go to Dashboard
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -494,79 +619,47 @@ export default function QueryInterface() {
               </CardContent>
             </Card>
           )}
-
-          {generatedSql && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Generated SQL Query</CardTitle>
-                <CardDescription>Your SQL query is ready. You can now execute it.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea value={generatedSql} readOnly className="min-h-[120px] font-mono bg-card/50 border-border/50" />
-                <Button onClick={handleExecuteQuery} disabled={isLoadingQueryExecution} className="w-full">
-                  {isLoadingQueryExecution && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Execute SQL Query
-                </Button>
-                {error && <p className="text-sm text-red-500">{error}</p>}
-                {queryResults.length > 0 && (
-                  <div className="pt-4">
-                    <h3 className="font-semibold text-lg mb-2">Query Results ({queryResults.length} rows):</h3>
-                    <div className="overflow-x-auto rounded-lg border border-border/50">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/20">
-                            {Object.keys(queryResults[0]).map((key) => (
-                              <TableHead key={key}>{key}</TableHead>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {queryResults.map((row, rowIndex) => (
-                            <TableRow key={rowIndex}>
-                              {Object.values(row).map((value, colIndex) => (
-                                <TableCell key={colIndex}>
-                                  {value === null || value === undefined ? 'NULL' : String(value)}
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-                )}
-                <div className="flex gap-2 pt-4">
-                  <Button variant="outline" onClick={clearAll}>
-                    Clear Generated SQL
-                  </Button>
-                  <Button variant="ghost" onClick={startOver}>
-                    Start Over
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </>
       )}
 
-      {step === "generatedSqlView" && (
+      {step === "generatedSqlView" && generatedSql && (
         <Card>
           <CardHeader>
             <CardTitle>Generated SQL Query</CardTitle>
             <CardDescription>Review the generated SQL query before execution.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Textarea value={generatedSql} readOnly className="min-h-[120px] font-mono bg-card/50 border-border/50" />
+            <Textarea 
+              value={editableSql}
+              onChange={(e) => setEditableSql(e.target.value)}
+              className="min-h-[120px] font-mono bg-card/50 border-border/50"
+            />
+            {generatedSql.explanation && (
+              <div>
+                <h3 className="font-semibold text-md mb-1">Explanation:</h3>
+                <p className="text-sm text-muted-foreground">{generatedSql.explanation}</p>
+              </div>
+            )}
+            {generatedSql.source_tables && generatedSql.source_tables.length > 0 && (
+              <div>
+                <h3 className="font-semibold text-md mb-1">Source Tables:</h3>
+                <div className="flex flex-wrap gap-2">
+                  {generatedSql.source_tables.map((table, index) => (
+                    <Badge key={index} variant="outline">{table}</Badge>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button onClick={handleExecuteQuery} disabled={isLoadingQueryExecution} className="flex-1">
                 {isLoadingQueryExecution && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Execute SQL Query
               </Button>
-              <Button variant="outline" onClick={() => setStep("query")}>
-                Edit Natural Language Query
+              <Button variant="outline" onClick={resetQueryState}>
+                Start New Query
               </Button>
-              <Button variant="outline" onClick={() => setStep("query")}>
-                Back to Query
+              <Button variant="outline" onClick={handleDownloadSql}>
+                <Download className="mr-2 h-4 w-4" /> Download SQL
               </Button>
             </div>
             {error && <p className="text-sm text-red-500">{error}</p>}
@@ -592,7 +685,7 @@ export default function QueryInterface() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {queryResults.map((row, rowIndex) => (
+                    {queryResults.slice(0, resultsDisplayLimit).map((row, rowIndex) => (
                       <TableRow key={rowIndex}>
                         {Object.values(row).map((value, colIndex) => (
                           <TableCell key={colIndex}>
@@ -603,17 +696,46 @@ export default function QueryInterface() {
                     ))}
                   </TableBody>
                 </Table>
+                {queryResults.length > resultsDisplayLimit && (
+                  <div className="flex justify-center mt-4">
+                    <Button variant="outline" onClick={() => setResultsDisplayLimit(prev => prev + 10)}>
+                      Show More ({queryResults.length - resultsDisplayLimit} remaining)
+                    </Button>
+                  </div>
+                )}
               </div>
             ) : (
-              <p className="text-muted-foreground">No results found for the executed query.</p>
+              <div className="space-y-4">
+                <p className="text-muted-foreground">No results found for the executed query.</p>
+                {generatedSql?.source_tables && generatedSql.source_tables.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="font-semibold text-md">Schema for Source Tables:</h3>
+                    {generatedSql.source_tables.map((tableName, idx) => (
+                      <div key={idx} className="border rounded-md p-2">
+                        <p className="font-medium">Table: {tableName}</p>
+                        {/* Placeholder for schema columns - will fetch dynamically */}
+                        <p className="text-sm text-muted-foreground">Loading schema details...</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
             <div className="flex gap-2 pt-4">
               <Button variant="outline" onClick={clearAll}>
                 Clear Results
               </Button>
-              <Button variant="ghost" onClick={startOver}>
-                Start Over
+              <Button variant="ghost" onClick={resetQueryState}>
+                Back to Query
               </Button>
+              <Button variant="outline" onClick={resetToTableSelection}>
+                Start Over (New Tables)
+              </Button>
+              {queryResults.length > 0 && (
+                <Button variant="outline" onClick={handleDownloadCsv}>
+                  <Download className="mr-2 h-4 w-4" /> Download CSV
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

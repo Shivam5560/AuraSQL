@@ -51,7 +51,6 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
   const [password, setPassword] = useState(initialData?.password ?? "")
   const [database, setDatabase] = useState(initialData?.database ?? "")
   const [schemaName, setSchemaName] = useState(initialData?.schema_name || "")
-  const [tableName, setTableName] = useState(initialData?.table_name || "")
   const [saveConnection, setSaveConnection] = useState(!!initialData)
   const [connectionName, setConnectionName] = useState(initialData?.name ?? "")
 
@@ -67,7 +66,6 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
       password,
       database,
       schema_name: schemaName,
-      table_name: tableName,
     }
     try {
       await onSubmit(config)
@@ -132,10 +130,7 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
             <Label htmlFor="schemaName">Schema Name</Label>
             <Input id="schemaName" value={schemaName} onChange={(e) => setSchemaName(e.target.value)} required />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="tableName">Table Name</Label>
-            <Input id="tableName" value={tableName} onChange={(e) => setTableName(e.target.value)} required />
-          </div>
+          
           <div className="col-span-full flex items-center space-x-2">
             <input
               type="checkbox"

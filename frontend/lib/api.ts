@@ -8,7 +8,10 @@ interface DbConfig {
   password?: string
   database: string
   schema_name: string
-  table_name: string
+}
+
+interface MultiTableContextConfig extends DbConfig {
+  table_names: string[]
 }
 
 interface SchemaColumn {
@@ -35,12 +38,15 @@ interface ApiResponse<T = any> {
   schema?: ExtractedSchema
   recommendations?: string[]
   sql?: string
+  explanation?: string
+  source_tables?: string[]
+  namespace_id?: string
 }
 
 // Replace with your actual backend URL
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_BASE_URL = 'http://localhost:8000'
 
-export async function extractSchema(config: DbConfig): Promise<ApiResponse<ExtractedSchema>> {
+export async function extractSchema(config: DbConfig & { table_name: string }): Promise<ApiResponse<ExtractedSchema>> {
   try {
     const response = await fetch(`${API_BASE_URL}/connect`, {
       method: 'POST',
@@ -64,23 +70,45 @@ export async function extractSchema(config: DbConfig): Promise<ApiResponse<Extra
   }
 }
 
-export async function insertSchema(
-  dbType: string,
-  tableName: string,
-  schemaName: string,
-  schemaDetails: ExtractedSchema
-): Promise<ApiResponse> {
+export async function createMultiTableContext(config: MultiTableContextConfig): Promise<ApiResponse<{ namespace_id: string }>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/insert_schema`, {
+    const response = await fetch(`${API_BASE_URL}/create_multitable_context`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(config),
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    return await response.json()
+  } catch (error) {
+    console.error('Error creating multi-table context:', error)
+    return {
+      success: false,
+      detail: error instanceof Error ? error.message : 'Unknown error occurred'
+    }
+  }
+}
+
+export async function listTables(config: DbConfig): Promise<ApiResponse<{ table_names: string[] }>> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/list_tables`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        db_type: dbType,
-        table_name: tableName,
-        schema_name: schemaName,
-        schema_details: schemaDetails,
+        db_type: config.db_type,
+        ip: config.ip,
+        port: config.port,
+        username: config.username,
+        password: config.password,
+        database: config.database,
+        schema_name: config.schema_name,
       }),
     })
 
@@ -90,7 +118,7 @@ export async function insertSchema(
 
     return await response.json()
   } catch (error) {
-    console.error('Error inserting schema:', error)
+    console.error('Error listing tables:', error)
     return {
       success: false,
       detail: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -98,10 +126,9 @@ export async function insertSchema(
   }
 }
 
+
 export async function getRecommendations(
-  dbType: string,
-  tableName: string,
-  schemaName: string
+  namespaceId: string
 ): Promise<ApiResponse<string[]>> {
   try {
     const response = await fetch(`${API_BASE_URL}/recommendations`, {
@@ -110,9 +137,7 @@ export async function getRecommendations(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        db_type: dbType,
-        table_name: tableName,
-        schema_name: schemaName,
+        namespace_id: namespaceId,
       }),
     })
 
@@ -130,12 +155,16 @@ export async function getRecommendations(
   }
 }
 
+interface GenerateQueryResponse {
+  sql: string
+  explanation: string
+  source_tables: string[]
+}
+
 export async function generateQuery(
-  dbType: string,
-  tableName: string,
-  schemaName: string,
+  namespaceId: string,
   naturalLanguageQuery: string
-): Promise<ApiResponse<string>> {
+): Promise<ApiResponse<GenerateQueryResponse>> {
   try {
     const response = await fetch(`${API_BASE_URL}/query`, {
       method: 'POST',
@@ -143,9 +172,7 @@ export async function generateQuery(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        db_type: dbType,
-        table_name: tableName,
-        schema_name: schemaName,
+        namespace_id: namespaceId,
         query: naturalLanguageQuery,
       }),
     })
@@ -165,7 +192,7 @@ export async function generateQuery(
 }
 
 export async function executeQuery(
-  config: DbConfig,
+  config: DbConfig & { table_name: string },
   sql: string
 ): Promise<ApiResponse<Record<string, any>[]>> {
   try {
@@ -175,7 +202,14 @@ export async function executeQuery(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        ...config,
+        db_type: config.db_type,
+        ip: config.ip,
+        port: config.port,
+        username: config.username,
+        password: config.password,
+        database: config.database,
+        schema_name: config.schema_name,
+        table_name: config.table_name,
         query: sql,
       }),
     })
