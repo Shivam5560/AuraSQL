@@ -10,7 +10,8 @@ async def recommendations(
     pinecone_index,
     llm,
     embed_model_query,
-    query_engine_cache: dict
+    query_engine_cache: dict,
+    expected_output_key: str # Added this parameter
 ):
     """
     Generates recommendations by asynchronously calling the query engine.
@@ -22,7 +23,8 @@ async def recommendations(
             pinecone_index=pinecone_index,
             llm=llm,
             embed_model_query=embed_model_query,
-            query_engine_cache=query_engine_cache
+            query_engine_cache=query_engine_cache,
+            expected_output_key=expected_output_key # Pass it along
         )
         
         if recommendations_json is None:

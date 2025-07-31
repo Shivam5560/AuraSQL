@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@radix-ui/react-dropdown-menu": "^2.1.15",
     "@shadcn/ui": "^0.0.4",
-    "framer-motion": "^12.23.9"
+    "framer-motion": "^12.23.9",
+    "react-select": "^5.10.2",
+    "xlsx": "^0.18.5"
   }
 }

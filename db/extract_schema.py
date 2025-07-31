@@ -3,6 +3,7 @@ import aiomysql
 import oracledb
 import pandas as pd
 import numpy as np
+import logging
 
 class ExtractSchema:
     def __init__(self, db_type, ip, port, username, password, database, schema_name, table_name):
@@ -47,10 +48,19 @@ class ExtractSchema:
                     results = await cursor.fetchall()
                     columns = [desc[0] for desc in cursor.description]
             else:
-                # asyncpg and oracledb have slightly different APIs
                 if self.db_type == "postgresql":
-                    results = await conn.fetch(query, *params)
-                    columns = [field.name for field in results[0].keys()] if results else []
+                    results = await conn.fetch(query, *(params or ()))
+                    # --- DIAGNOSTIC LOGGING START ---
+                    logging.info(f"PostgreSQL fetch results type: {type(results)}")
+                    if results:
+                        logging.info(f"PostgreSQL results[0] type: {type(results[0])}")
+                    # --- DIAGNOSTIC LOGGING END ---
+
+                    if results:
+                        # Convert asyncpg.Record to dict to ensure .keys() works as expected
+                        columns = list(dict(results[0]).keys())
+                    else:
+                        columns = []
                 elif self.db_type == "oracle":
                      async with conn.cursor() as cursor:
                         await cursor.execute(query, params or ())
@@ -130,3 +140,19 @@ class ExtractSchema:
             raise ValueError(f"Unsupported database type: {self.db_type}")
         
         return query, params
+
+    async def get_all_table_names(self):
+        if self.db_type == 'postgresql':
+            query = "SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_catalog = $2;"
+            params = (self.schema_name, self.database_schema)
+        elif self.db_type == 'mysql':
+            query = "SELECT table_name FROM information_schema.tables WHERE table_schema = %s AND table_type = 'BASE TABLE';"
+            params = (self.database_schema,)
+        elif self.db_type == 'oracle':
+            query = "SELECT table_name FROM all_tables WHERE owner = :1;"
+            params = (self.database_schema.upper(),)
+        else:
+            raise ValueError(f"Unsupported database type: {self.db_type}")
+        
+        df = await self.execute_query(query, params)
+        return df['table_name'].tolist()

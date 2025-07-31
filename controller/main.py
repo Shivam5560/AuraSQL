@@ -21,6 +21,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 from rag.QueryEngine import insert_schema, generate_query_engine, create_namespace_from_tables
 from db.extract_schema import ExtractSchema
 from utils.system_prompt import system_prompt
+from models.recommendations import recommendations
 from utils.config import CORS_ALLOWED_ORIGINS, TIMEOUT_SECONDS
 
 # Imports for client initialization
@@ -101,6 +102,15 @@ class ExecuteSQLRequest(BaseModel):
     table_name: str
     query: str
 
+class ListTablesRequest(BaseModel):
+    db_type: str
+    ip: str
+    port: int
+    username: str
+    password: str
+    database: str
+    schema_name: str
+
 # --- API ENDPOINTS ---
 
 @app.middleware("http")
@@ -117,6 +127,30 @@ async def root():
 async def extract_schema_api(req: ConnectRequest, request: Request):
     """Extracts schema for a single table."""
     # ... (logic remains the same)
+
+@app.post("/list_tables")
+async def list_tables_api(req: ListTablesRequest, request: Request):
+    """Lists all table names for a given database and schema."""
+    request_id = request.state.request_id
+    logger = logging.getLogger(__name__)
+    logger.info(f"Request {request_id}: Listing tables for {req.db_type}/{req.database}/{req.schema_name}")
+    try:
+        schema_extractor = ExtractSchema(
+            db_type=req.db_type,
+            ip=req.ip,
+            port=req.port,
+            username=req.username,
+            password=req.password,
+            database=req.database,
+            schema_name=req.schema_name,
+            table_name="", # table_name is not used for listing all tables
+        )
+        table_names = await schema_extractor.get_all_table_names()
+        logger.info(f"Request {request_id}: Successfully listed {len(table_names)} tables.")
+        return {"success": True, "table_names": table_names}
+    except Exception as e:
+        logger.error(f"Request {request_id}: Failed to list tables: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/create_multitable_context")
 async def create_multitable_context_api(req: MultiTableContextRequest, request: Request):
@@ -168,7 +202,8 @@ async def query_api(req: QueryRequest, request: Request):
             pinecone_index=app_state["pinecone_index"],
             llm=app_state["llm"],
             embed_model_query=app_state["embed_model_query"],
-            query_engine_cache=app_state["query_engine_cache"]
+            query_engine_cache=app_state["query_engine_cache"],
+            expected_output_key="sql"
         )
 
         if sql_query_json:
@@ -194,7 +229,8 @@ async def recommendations_api(req: RecommendationsRequest, request: Request):
             pinecone_index=app_state["pinecone_index"],
             llm=app_state["llm"],
             embed_model_query=app_state["embed_model_query"],
-            query_engine_cache=app_state["query_engine_cache"]
+            query_engine_cache=app_state["query_engine_cache"],
+            expected_output_key="recommendations"
         )
         
         if response:
@@ -253,13 +289,12 @@ async def recommendations_api(req: RecommendationsRequest, request: Request):
         # For now, we'll pass the namespace_id as table_name and schema_name for compatibility
         # This will need further refactoring in models/recommendations.py
         response = await recommendations(
-            db_type="", # Not directly used by recommendations, but required by signature
-            schema_name="", # Not directly used by recommendations, but required by signature
-            table_name=req.namespace_id, # Using namespace_id as a placeholder
+            namespace=req.namespace_id,
             pinecone_index=app_state["pinecone_index"],
             llm=app_state["llm"],
             embed_model_query=app_state["embed_model_query"],
-            query_engine_cache=app_state["query_engine_cache"]
+            query_engine_cache=app_state["query_engine_cache"],
+            expected_output_key="recommendations"
         )
         
         if response:

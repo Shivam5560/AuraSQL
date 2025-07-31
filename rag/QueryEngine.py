@@ -1,5 +1,3 @@
-# QueryEngine.py
-
 import os
 import json
 import hashlib
@@ -89,6 +87,7 @@ async def generate_query_engine(
     llm,
     embed_model_query,
     query_engine_cache: dict,
+    expected_output_key: str, # New parameter
     max_retries: int = 2
 ):
     """
@@ -119,12 +118,22 @@ async def generate_query_engine(
             response = await query_engine.aquery(user_query)
             
             cleaned_response_str = clean_json(response.response)
+            logging.info(f"Raw LLM response (cleaned): {cleaned_response_str}") # Added logging
+            
             response_json = json.loads(cleaned_response_str)
-            sql_query = response_json.get("sql")
+            
+            # Check for the expected key
+            if expected_output_key not in response_json:
+                raise ValueError(f"LLM response did not contain '{expected_output_key}' key.")
 
-            parsed = sqlparse.parse(sql_query)
-            if not parsed or parsed[0].get_type() == 'UNKNOWN':
-                raise ValueError("Generated SQL has invalid syntax.")
+            # Only perform SQL validation if expected_output_key is 'sql'
+            if expected_output_key == 'sql':
+                sql_query = response_json.get("sql")
+                if sql_query is None:
+                    raise ValueError("LLM response 'sql' value was null.")
+                parsed = sqlparse.parse(sql_query)
+                if not parsed or parsed[0].get_type() == 'UNKNOWN':
+                    raise ValueError("Generated SQL has invalid syntax.")
 
             logging.info("Query generated and validated successfully.")
             return cleaned_response_str.strip()
@@ -133,10 +142,10 @@ async def generate_query_engine(
             logging.warning(f"Attempt {attempt + 1} failed: {e}. Retrying...")
             user_query = (
                 f"{user_query}\n\nPrevious attempt failed. Please fix the following error: {e}. "
-                f"Regenerate the JSON, ensuring the SQL is valid and the format is correct."
+                f"Regenerate the JSON, ensuring the format is correct and contains the '{expected_output_key}' key."
             )
             if attempt + 1 == max_retries:
-                logging.error("Max retries reached. Failed to generate valid SQL.")
+                logging.error("Max retries reached. Failed to generate valid response.")
                 return None
         except Exception as e:
             logging.error(f"An unexpected error occurred in generate_query_engine: {e}")
