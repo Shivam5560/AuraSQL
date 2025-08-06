@@ -76,11 +76,13 @@ export default function QueryInterface() {
   const [editableSql, setEditableSql] = useState<string>("")
   const [queryResults, setQueryResults] = useState<Record<string, any>[]>([])
   const [queryColumns, setQueryColumns] = useState<string[]>([])
+  const [extractedSchemas, setExtractedSchemas] = useState<ExtractedSchema | null>(null)
+  const [selectedSchemaTable, setSelectedSchemaTable] = useState<string | null>(null)
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
   const [isLoadingQueryGeneration, setIsLoadingQueryGeneration] = useState(false)
   const [isLoadingQueryExecution, setIsLoadingQueryExecution] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [step, setStep] = useState<'selectTables' | 'query' | 'generatedSqlView' | 'results'>("selectTables")
+  const [step, setStep] = useState<'selectTables' | 'displaySchema' | 'query' | 'generatedSqlView' | 'results'>("selectTables")
   const [showAiRecommendations, setShowAiRecommendations] = useState(false)
   const [isLoadingRecommendationsDelayed, setIsLoadingRecommendationsDelayed] = useState(false)
   const [loadingMessage, setLoadingMessage] = useState("Loading database configuration...");
@@ -199,9 +201,11 @@ export default function QueryInterface() {
         table_names: tableNames,
       });
 
-      if (result.success && result.namespace_id) {
+      if (result.success && result.namespace_id && result.schema) {
         setNamespaceId(result.namespace_id);
-        setStep("query");
+        setExtractedSchemas(result.schema);
+        setSelectedSchemaTable(selectedTables[0]?.value || null); // Set first table as default
+        setStep("displaySchema");
       } else {
         setError(result.detail || "Failed to create multi-table context.");
       }
@@ -385,6 +389,8 @@ export default function QueryInterface() {
     setGeneratedSql(null)
     setQueryResults([])
     setQueryColumns([])
+    setExtractedSchemas(null)
+    setSelectedSchemaTable(null)
     setNaturalLanguageQuery("")
     setError(null)
     setSelectedRecommendations([])
@@ -395,6 +401,8 @@ export default function QueryInterface() {
     setGeneratedSql(null)
     setQueryResults([])
     setQueryColumns([])
+    setExtractedSchemas(null)
+    setSelectedSchemaTable(null)
     setNaturalLanguageQuery("")
     setError(null)
     setSelectedRecommendations([])
@@ -536,6 +544,68 @@ export default function QueryInterface() {
             <div className="flex justify-end pt-4">
               <Button onClick={() => router.push('/dashboard')} variant="outline">
                 Go to Dashboard
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {step === "displaySchema" && extractedSchemas && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Review Extracted Schema</CardTitle>
+            <CardDescription>Verify the schema extracted for your selected tables. Click on a table name to view its schema details.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {Object.keys(extractedSchemas).map((tableName) => (
+                <Badge
+                  key={tableName}
+                  variant={selectedSchemaTable === tableName ? "default" : "secondary"}
+                  className="cursor-pointer hover:bg-accent transition-colors"
+                  onClick={() => setSelectedSchemaTable(tableName)}
+                >
+                  {tableName}
+                </Badge>
+              ))}
+            </div>
+
+            {selectedSchemaTable && extractedSchemas[selectedSchemaTable] && (
+              <div className="overflow-x-auto rounded-lg border border-border/50">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/20">
+                      {extractedSchemas[selectedSchemaTable].length > 0 && 
+                        Object.keys(extractedSchemas[selectedSchemaTable][0]).map((key) => (
+                          <TableHead key={key}>{key}</TableHead>
+                        ))
+                      }
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {extractedSchemas[selectedSchemaTable].map((row, rowIndex) => (
+                      <TableRow key={rowIndex}>
+                        {Object.values(row).map((value, colIndex) => (
+                          <TableCell key={colIndex}>
+                            {value === null || value === undefined ? 'NULL' : String(value)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            {!selectedSchemaTable && (
+              <p className="text-muted-foreground">Select a table above to view its schema.</p>
+            )}
+
+            <div className="flex gap-2 pt-4">
+              <Button onClick={() => setStep("query")}>
+                Proceed to Query Generation
+              </Button>
+              <Button variant="outline" onClick={resetToTableSelection}>
+                Back to Table Selection
               </Button>
             </div>
           </CardContent>
@@ -711,14 +781,38 @@ export default function QueryInterface() {
             ) : (
               <div className="space-y-4">
                 <p className="text-muted-foreground">No results found for the executed query.</p>
-                {generatedSql?.source_tables && generatedSql.source_tables.length > 0 && (
-                  <div className="space-y-2">
+                {generatedSql?.source_tables && generatedSql.source_tables.length > 0 && extractedSchemas && (
+                  <div className="space-y-4">
                     <h3 className="font-semibold text-md">Schema for Source Tables:</h3>
                     {generatedSql.source_tables.map((tableName, idx) => (
                       <div key={idx} className="border rounded-md p-2">
-                        <p className="font-medium">Table: {tableName}</p>
-                        {/* Placeholder for schema columns - will fetch dynamically */}
-                        <p className="text-sm text-muted-foreground">Loading schema details...</p>
+                        <p className="font-medium mb-2">Table: {tableName}</p>
+                        {extractedSchemas[tableName] && extractedSchemas[tableName].length > 0 ? (
+                          <div className="overflow-x-auto rounded-lg border border-border/50">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/20">
+                                  {Object.keys(extractedSchemas[tableName][0]).map((key) => (
+                                    <TableHead key={key}>{key}</TableHead>
+                                  ))}
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {extractedSchemas[tableName].map((row, rowIndex) => (
+                                  <TableRow key={rowIndex}>
+                                    {Object.values(row).map((value, colIndex) => (
+                                      <TableCell key={colIndex}>
+                                        {value === null || value === undefined ? 'NULL' : String(value)}
+                                      </TableCell>
+                                    ))}
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No schema details available for this table.</p>
+                        )}
                       </div>
                     ))}
                   </div>

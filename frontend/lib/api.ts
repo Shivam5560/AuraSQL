@@ -15,16 +15,7 @@ interface MultiTableContextConfig extends DbConfig {
 }
 
 interface SchemaColumn {
-  table_name: string
-  column_name: string
-  data_type: string
-  is_nullable: string
-  character_maximum_length: number | null
-  numeric_precision: number | null
-  numeric_scale: number | null
-  constraint_type: string | null
-  column_default: string | null
-  db_type: string
+  [key: string]: any;
 }
 
 interface ExtractedSchema {
@@ -72,7 +63,7 @@ export async function extractSchema(config: DbConfig & { table_name: string }): 
   }
 }
 
-export async function createMultiTableContext(config: MultiTableContextConfig): Promise<ApiResponse<{ namespace_id: string }>> {
+export async function createMultiTableContext(config: MultiTableContextConfig): Promise<ApiResponse<{ namespace_id: string, schema: ExtractedSchema }>> {
   try {
     const response = await fetch(`${API_BASE_URL}/create_multitable_context`, {
       method: 'POST',

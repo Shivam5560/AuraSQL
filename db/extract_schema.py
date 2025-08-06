@@ -51,8 +51,9 @@ class ExtractSchema:
         conn = await self.connect_to_database()
         try:
             if self.db_type == "postgresql":
-                results = await conn.fetch(query, *(params or ()))
-                columns = list(results[0].keys()) if results else []
+                statement = await conn.prepare(query)
+                columns = [attr.name for attr in statement.get_attributes()]
+                results = await statement.fetch(*(params or ()))
             elif self.db_type == "mysql":
                 async with conn.cursor() as cursor:
                     await cursor.execute(query, params or ())
@@ -80,7 +81,6 @@ class ExtractSchema:
         query, params = self.get_schema_query()
         df = await self.execute_query(query, params)
 
-        df['db_type'] = self.db_type
         df.replace({np.nan: None, np.inf: None, -np.inf: None}, inplace=True)
 
         return {self.table_name: df.to_dict(orient='records')}
@@ -88,7 +88,6 @@ class ExtractSchema:
     def get_schema_query(self):
         if self.db_type == 'postgresql':
             query = """ SELECT 
-                        c.table_name,
                         c.column_name, 
                         c.data_type, 
                         c.is_nullable, 

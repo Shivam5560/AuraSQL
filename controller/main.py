@@ -194,7 +194,7 @@ async def create_multitable_context_api(req: MultiTableContextRequest, request: 
         )
 
         logger.info(f"Request {request_id}: Multi-table context created with namespace: {namespace_id}")
-        return {"success": True, "namespace_id": namespace_id}
+        return {"success": True, "namespace_id": namespace_id, "schema": combined_schema}
 
     except Exception as e:
         logger.error(f"Request {request_id}: Failed to create multi-table context: {e}")
@@ -208,7 +208,7 @@ async def query_api(req: QueryRequest, request: Request):
     logger.info(f"Request {request_id}: Starting query generation for namespace: {req.namespace_id}")
 
     try:
-        formatted_query = f"{system_prompt}\nUser Query:\n{req.query}"
+        formatted_query = f"{system_prompt}\nUser Query:\n{req.query}\nDB Type: {req.namespace_id.split('_')[0]}"
 
         sql_query_json = await generate_query_engine(
             user_query=formatted_query,

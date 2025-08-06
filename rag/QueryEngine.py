@@ -116,6 +116,7 @@ async def generate_query_engine(
         try:
             logging.info(f"Executing query attempt {attempt + 1}...")
             response = await query_engine.aquery(user_query)
+            logging.info("Query executed successfully for namespace " + namespace + "having db_type " + namespace.split("_")[0])
             
             cleaned_response_str = clean_json(response.response)
             # logging.info(f"Raw LLM response (cleaned): {cleaned_response_str}") # Added logging
