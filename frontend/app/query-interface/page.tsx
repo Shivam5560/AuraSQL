@@ -246,7 +246,7 @@ export default function QueryInterface() {
       setIsLoadingRecommendationsDelayed(true);
       timer = setTimeout(() => {
         fetchRecommendations();
-      }, 2000);
+      }, 5000);
     }
 
     return () => clearTimeout(timer);

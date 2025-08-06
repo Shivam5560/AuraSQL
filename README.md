@@ -1,133 +1,120 @@
-# AuraSQL
+# Text2SQL
 
-AuraSQL is a web application that transforms natural language queries into SQL queries using AI-powered techniques. It provides a user-friendly interface to connect to databases, extract schemas, generate SQL queries, and execute them.
+This project allows you to connect to your database and get insights from your data by asking questions in natural language. It uses the power of AI to translate your questions into SQL queries and returns the results to you.
 
-## Features
+## Workflow Diagram
 
-- **Database Connection**: Connect to PostgreSQL, MySQL, or Oracle databases.
-- **Schema Extraction**: Extract and validate database schemas.
-- **AI-Powered Query Generation**: Generate SQL queries from natural language descriptions or recommendations.
-- **Query Execution**: Execute generated SQL queries and view results.
+```
+┌───────────────────┐      ┌───────────────────┐      ┌───────────────────┐
+│                   │      │                   │      │                   │
+│   Frontend        ├─────►│   Backend         ├─────►│   Database        │
+│   (Next.js)       │      │   (Flask)         │      │                   │
+│                   │◄─────┤                   │◄─────┤                   │
+└───────────────────┘      └───────────────────┘      └───────────────────┘
+```
 
-## Tech Stack
+## Getting Started
 
-- **Frontend**: React, Tailwind CSS, TypeScript
-- **Backend**: FastAPI (Python)
-- **API Integration**: RESTful APIs for schema extraction, query generation, and execution.
-
-## Setup Instructions
+These instructions will get you a copy of the project up and running on your local machine for development and testing purposes.
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
-- npm or yarn
-- Python (v3.8 or higher)
-- A running database (PostgreSQL, MySQL, or Oracle)
-
-### Frontend Setup
-
-1. Navigate to the frontend directory:
-   ```bash
-   cd /Users/shivamsourav/Downloads/txt2sql/scratch/frontend
-   ```
-
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
-
-4. Open the application in your browser at `http://localhost:3000`.
+*   **Python 3.10 or later:** You'll need Python to run the backend. You can download it from [python.org](https://www.python.org/downloads/).
+*   **Node.js v20.15.1 or later:** You'll need Node.js to run the frontend. You can download it from [nodejs.org](https://nodejs.org/en/download/).
+*   **Git:** You'll need Git to clone the project. You can download it from [git-scm.com](https://git-scm.com/downloads).
 
 ### Backend Setup
 
-1. Navigate to the backend directory:
-   ```bash
-   cd /Users/shivamsourav/Downloads/txt2sql/scratch/backend
-   ```
+1.  **Clone the repository:**
 
-2. Create a virtual environment and activate it:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
+    ```bash
+    git clone https://github.com/AuraSQL/AuraSQL.git
+    cd AuraSQL
+    ```
 
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+2.  **Create a virtual environment:**
 
-4. Start the FastAPI server:
-   ```bash
-   uvicorn main:app --reload
-   ```
+    *   On macOS and Linux:
 
-5. The backend will be available at `http://localhost:8000`.
+        ```bash
+        python3 -m venv venv
+        source venv/bin/activate
+        ```
 
-## Usage
+    *   On Windows:
 
-1. **Connect to a Database**: Enter your database connection details (host, port, username, password, etc.).
-2. **Extract Schema**: Extract and review the schema of the selected table.
-3. **Generate SQL Queries**:
-   - Use AI-generated recommendations.
-   - Write custom natural language queries.
-4. **Execute Queries**: Run the generated SQL queries and view the results.
+        ```bash
+        python -m venv venv
+        venv\Scripts\activate
+        ```
 
-## About AuraSQL
+3.  **Install the dependencies:**
 
-AuraSQL is designed to simplify your database management and query generation. It leverages advanced AI capabilities to understand natural language queries and translate them into executable SQL, making database interactions more intuitive and efficient.
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-Key features include:
+4.  **Create a `.env` file:**
 
-- Seamless database connection and schema extraction.
-- AI-powered natural language to SQL conversion.
-- Query history tracking and execution.
-- Intuitive dashboard for managing connections and reviewing activity.
+    Create a file named `.env` in the root directory of the project and add the following environment variables:
 
-Our goal is to empower users, from data analysts to developers, to interact with their databases more effectively, reducing the need for deep SQL expertise and accelerating data-driven decision-making.
+    ```
+    # Get your API key from https://makersuite.google.com/
+    GOOGLE_API_KEY="YOUR_GOOGLE_API_KEY"
 
-## Developer
+    # Get your API key from https://groq.com/
+    GROQ_API_KEY="YOUR_GROQ_API_KEY"
 
-### Shivam Sourav
+    # Get your API key from https://cohere.com/
+    COHERE_API_KEY="YOUR_COHERE_API_KEY"
 
-Associate Software Engineer at NRI Fintech India, passionate about creating tools that help professionals advance their careers through better resume presentation.
+    # Get your API key from https://www.pinecone.io/
+    PINECONE_API_KEY="YOUR_PINECONE_API_KEY"
+    ```
 
-**Current Role:** Associate Software Engineer at NRI Fintech India
-**Education:** B.Tech AI & Data Science, SMIT
-**Specialization:** AI, Machine Learning, Full-stack Development
-**Location:** Banka, Bihar, India
+### Frontend Setup
 
-**Links:**
-- [LinkedIn](https://www.linkedin.com/in/shivam-sourav-b889aa204/)
-- [GitHub](https://github.com/Shivam5560)
+1.  **Navigate to the `frontend` directory:**
 
-## API Endpoints
+    ```bash
+    cd frontend
+    ```
 
-- `POST /api/extract-schema`: Extracts the schema of a database table.
-- `POST /api/insert_schema`: Inserts schema details into the backend.
-- `POST /api/recommendations`: Fetches AI-generated query recommendations.
-- `POST /api/query`: Generates SQL queries from natural language.
-- `POST /api/query_sql`: Executes SQL queries on the database.
+2.  **Install the dependencies:**
 
-## Contributing
+    ```bash
+    npm install
+    ```
 
-Contributions are welcome! Please follow these steps:
+3.  **Create a `.env.local` file:**
 
-1. Fork the repository.
-2. Create a new branch for your feature or bug fix.
-3. Commit your changes and push the branch.
-4. Open a pull request.
+    Create a file named `.env.local` in the `frontend` directory and add the following environment variables:
 
-## License
+    ```
+    NEXT_PUBLIC_SUPABASE_URL="YOUR_SUPABASE_URL"
+    NEXT_PUBLIC_SUPABASE_ANON_KEY="YOUR_SUPABASE_ANON_KEY"
+    ```
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+    You can get these values from your Supabase project settings.
 
-## Acknowledgments
+### Running the Application
 
-- [FastAPI](https://fastapi.tiangolo.com/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [React](https://reactjs.org/)
+1.  **Start the backend server:**
+
+    Make sure you are in the root directory of the project and the virtual environment is activated.
+
+    ```bash
+    gunicorn -w 4 -k uvicorn.workers.UvicornWorker controller.main:app
+    ```
+
+2.  **Start the frontend server:**
+
+    In a new terminal, navigate to the `frontend` directory.
+
+    ```bash
+    npm run dev
+    ```
+
+3.  **Open your browser:**
+
+    Open your browser and navigate to [http://localhost:3000](http://localhost:3000).

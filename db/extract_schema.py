@@ -17,27 +17,34 @@ class ExtractSchema:
         self.table_name = table_name
 
     async def connect_to_database(self):
-        if self.db_type == "postgresql":
-            return await asyncpg.connect(
-                host=self.ip,
-                port=self.port,
-                user=self.username,
-                password=self.password,
-                database=self.database_schema
-            )
-        elif self.db_type == "mysql":
-            return await aiomysql.connect(
-                host=self.ip,
-                port=self.port,
-                user=self.username,
-                password=self.password,
-                db=self.database_schema
-            )
-        elif self.db_type == "oracle":
-            dsn = f"{self.username}/{self.password}@{self.ip}:{self.port}/{self.database_schema}"
-            return await oracledb.connect_async(dsn=dsn)
-        else:
-            raise ValueError(f"Unsupported database type: {self.db_type}")
+        try:
+            if self.db_type == "postgresql":
+                return await asyncpg.connect(
+                    host=self.ip,
+                    port=self.port,
+                    user=self.username,
+                    password=self.password,
+                    database=self.database_schema
+                )
+            elif self.db_type == "mysql":
+                return await aiomysql.connect(
+                    host=self.ip,
+                    port=self.port,
+                    user=self.username,
+                    password=self.password,
+                    db=self.database_schema
+                )
+            elif self.db_type == "oracle":
+                dsn = f"{self.username}/{self.password}@{self.ip}:{self.port}/{self.database_schema}"
+                return await oracledb.connect_async(dsn=dsn)
+            else:
+                raise ValueError(f"Unsupported database type: {self.db_type}")
+        except (OSError, asyncpg.exceptions.PostgresError) as e:
+            # Catching OSError for nodename nor servname provided, or not known
+            # and other potential DNS/network-related errors.
+            # Catching asyncpg.exceptions.PostgresError for more specific postgres errors.
+            logging.error(f"Database connection failed for {self.db_type} at {self.ip}:{self.port}. Error: {e}")
+            raise ValueError(f"Database connection failed: {e}") from e
 
     async def execute_query(self, query, params=None):
         conn = await self.connect_to_database()
