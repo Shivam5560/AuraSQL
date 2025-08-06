@@ -24,7 +24,8 @@ class ExtractSchema:
                     port=self.port,
                     user=self.username,
                     password=self.password,
-                    database=self.database_schema
+                    database=self.database_schema,
+                    ssl='require'
                 )
             elif self.db_type == "mysql":
                 return await aiomysql.connect(
