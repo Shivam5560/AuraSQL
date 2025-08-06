@@ -7,8 +7,8 @@ import logging
 import asyncio
 import uuid
 from contextlib import asynccontextmanager
-from typing import List
-from pydantic import BaseModel
+from typing import List, Optional
+from pydantic import BaseModel, validator
 
 # FastAPI and related imports
 from fastapi import FastAPI, HTTPException, Request
@@ -71,7 +71,7 @@ class ConnectRequest(BaseModel):
     username: str
     password: str
     database: str
-    schema_name: str
+    schema_name: Optional[str] = None
     table_name: str
 
 class MultiTableContextRequest(BaseModel):
@@ -81,7 +81,7 @@ class MultiTableContextRequest(BaseModel):
     username: str
     password: str
     database: str
-    schema_name: str
+    schema_name: Optional[str] = None
     table_names: List[str]
 
 class QueryRequest(BaseModel):
@@ -98,7 +98,7 @@ class ExecuteSQLRequest(BaseModel):
     username: str
     password: str
     database: str
-    schema_name: str
+    schema_name: Optional[str] = None
     table_name: str
     query: str
 
@@ -109,7 +109,16 @@ class ListTablesRequest(BaseModel):
     username: str
     password: str
     database: str
-    schema_name: str
+    schema_name: Optional[str] = None
+
+    @validator('schema_name', pre=True, always=True)
+    def set_schema_name(cls, v, values):
+        db_type = values.get('db_type')
+        if db_type in ['mysql', 'oracle'] and v is None:
+            return values.get('database')
+        if db_type == 'postgresql' and v is None:
+            raise ValueError('schema_name is required for PostgreSQL')
+        return v
 
 # --- API ENDPOINTS ---
 
@@ -133,7 +142,12 @@ async def list_tables_api(req: ListTablesRequest, request: Request):
     """Lists all table names for a given database and schema."""
     request_id = request.state.request_id
     logger = logging.getLogger(__name__)
-    logger.info(f"Request {request_id}: Listing tables for {req.db_type}/{req.database}/{req.schema_name}")
+    
+    log_message = f"Request {request_id}: Listing tables for {req.db_type}/{req.database}"
+    if req.db_type == 'postgresql':
+        log_message += f"/{req.schema_name}"
+    
+    logger.info(log_message)
     try:
         schema_extractor = ExtractSchema(
             db_type=req.db_type,
@@ -271,6 +285,7 @@ async def execute_sql_api(req: ExecuteSQLRequest, request: Request):
         return {
             "success": True,
             "data": query_response_df.to_dict(orient='records'),
+            "columns": query_response_df.columns.tolist(),
         }
     except asyncio.TimeoutError:
         logger.error(f"Request {request_id}: Timeout in /query_sql")
@@ -279,66 +294,3 @@ async def execute_sql_api(req: ExecuteSQLRequest, request: Request):
         logger.error(f"Request {request_id}: SQL execution failed: {e}")
         raise HTTPException(status_code=400, detail=f"SQL execution failed: {str(e)}")
 
-@app.post("/recommendations")
-async def recommendations_api(req: RecommendationsRequest, request: Request):
-    request_id = request.state.request_id
-    logger = logging.getLogger(__name__)
-    logger.info(f"Request {request_id}: Starting recommendations generation for namespace: {req.namespace_id}")
-    try:
-        # The recommendations function needs to be updated to accept namespace_id
-        # For now, we'll pass the namespace_id as table_name and schema_name for compatibility
-        # This will need further refactoring in models/recommendations.py
-        response = await recommendations(
-            namespace=req.namespace_id,
-            pinecone_index=app_state["pinecone_index"],
-            llm=app_state["llm"],
-            embed_model_query=app_state["embed_model_query"],
-            query_engine_cache=app_state["query_engine_cache"],
-            expected_output_key="recommendations"
-        )
-        
-        if response:
-            logger.info(f"Request {request_id}: Recommendations generation successful.")
-            return {"success": True, "recommendations": response.get("recommendations", [])}
-        else:
-            logger.error(f"Request {request_id}: Failed to generate recommendations.")
-            raise HTTPException(status_code=500, detail="Failed to generate recommendations.")
-
-    except asyncio.TimeoutError:
-        logger.error(f"Request {request_id}: Timeout in /recommendations")
-        raise HTTPException(status_code=504, detail="Recommendations timed out.")
-    except json.JSONDecodeError as e:
-        logger.error(f"Request {request_id}: Failed to decode JSON response: {e}")
-        raise HTTPException(status_code=500, detail="Failed to decode JSON response from the query engine.")
-    except Exception as e:
-        logger.error(f"Request {request_id}: Error generating recommendations: {e}")
-        raise HTTPException(status_code=500, detail=f"Error generating recommendations: {str(e)}")
-
-@app.post("/query_sql")
-async def execute_sql_api(req: ExecuteSQLRequest, request: Request):
-    request_id = request.state.request_id
-    logger = logging.getLogger(__name__)
-    logger.info(f"Request {request_id}: Starting SQL execution.")
-    try:
-        schema_extractor = ExtractSchema(
-            db_type=req.db_type,
-            ip=req.ip,
-            port=req.port,
-            username=req.username,
-            password=req.password,
-            database=req.database,
-            schema_name=req.schema_name,
-            table_name=req.table_name, # This might not be used if query is generic
-        )
-        query_response_df = await schema_extractor.execute_query(req.query)
-        logger.info(f"Request {request_id}: SQL execution successful.")
-        return {
-            "success": True,
-            "data": query_response_df.to_dict(orient='records'),
-        }
-    except asyncio.TimeoutError:
-        logger.error(f"Request {request_id}: Timeout in /query_sql")
-        raise HTTPException(status_code=504, detail="Query execution timed out.")
-    except Exception as e:
-        logger.error(f"Request {request_id}: SQL execution failed: {e}")
-        raise HTTPException(status_code=400, detail=f"SQL execution failed: {str(e)}")

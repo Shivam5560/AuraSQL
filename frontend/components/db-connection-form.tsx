@@ -65,7 +65,7 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
       username,
       password,
       database,
-      schema_name: schemaName,
+      schema_name: dbType === "postgresql" ? schemaName : database,
     }
     try {
       await onSubmit(config)
@@ -126,10 +126,12 @@ export function DbConnectionForm({ onSubmit, isLoading, error, session, initialD
             <Label htmlFor="database">Database Name</Label>
             <Input id="database" value={database} onChange={(e) => setDatabase(e.target.value)} required />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="schemaName">Schema Name</Label>
-            <Input id="schemaName" value={schemaName} onChange={(e) => setSchemaName(e.target.value)} required />
-          </div>
+          {dbType === 'postgresql' && (
+            <div className="space-y-2">
+              <Label htmlFor="schemaName">Schema Name</Label>
+              <Input id="schemaName" value={schemaName} onChange={(e) => setSchemaName(e.target.value)} required />
+            </div>
+          )}
           
           <div className="col-span-full flex items-center space-x-2">
             <input

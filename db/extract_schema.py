@@ -50,38 +50,31 @@ class ExtractSchema:
     async def execute_query(self, query, params=None):
         conn = await self.connect_to_database()
         try:
-            if self.db_type == "mysql":
+            if self.db_type == "postgresql":
+                results = await conn.fetch(query, *(params or ()))
+                columns = list(results[0].keys()) if results else []
+            elif self.db_type == "mysql":
                 async with conn.cursor() as cursor:
                     await cursor.execute(query, params or ())
+                    columns = [desc[0] for desc in cursor.description] if cursor.description else []
                     results = await cursor.fetchall()
+            elif self.db_type == "oracle":
+                async with conn.cursor() as cursor:
+                    await cursor.execute(query, params or ())
                     columns = [desc[0] for desc in cursor.description]
+                    results = await cursor.fetchall()
             else:
-                if self.db_type == "postgresql":
-                    results = await conn.fetch(query, *(params or ()))
-                    # --- DIAGNOSTIC LOGGING START ---
-                    logging.info(f"PostgreSQL fetch results type: {type(results)}")
-                    if results:
-                        logging.info(f"PostgreSQL results[0] type: {type(results[0])}")
-                    # --- DIAGNOSTIC LOGGING END ---
-
-                    if results:
-                        # Convert asyncpg.Record to dict to ensure .keys() works as expected
-                        columns = list(dict(results[0]).keys())
-                    else:
-                        columns = []
-                elif self.db_type == "oracle":
-                     async with conn.cursor() as cursor:
-                        await cursor.execute(query, params or ())
-                        results = await cursor.fetchall()
-                        columns = [desc[0] for desc in cursor.description]
+                raise ValueError(f"Unsupported database type: {self.db_type}")
+                        
             
             df = pd.DataFrame(results, columns=columns)
             return df
         finally:
-            if self.db_type in ["postgresql", "oracle"]:
-                await conn.close()
-            else: #aiomysql
-                conn.close()
+            if conn:
+                if self.db_type in ["postgresql", "oracle"]:
+                    await conn.close()
+                elif self.db_type == "mysql":
+                    conn.close()
 
     async def extract_schema_details(self):
         query, params = self.get_schema_query()
@@ -153,14 +146,23 @@ class ExtractSchema:
         if self.db_type == 'postgresql':
             query = "SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_catalog = $2;"
             params = (self.schema_name, self.database_schema)
+            df = await self.execute_query(query, params)
+            return df['table_name'].tolist()
+
         elif self.db_type == 'mysql':
-            query = "SELECT table_name FROM information_schema.tables WHERE table_schema = %s AND table_type = 'BASE TABLE';"
-            params = (self.database_schema,)
+            query = "SHOW TABLES;"
+            params = None
+            df = await self.execute_query(query, params)
+            if not df.empty:
+                # The column name from "SHOW TABLES" is "Tables_in_<db_name>"
+                return df.iloc[:, 0].tolist()
+            return []
+
         elif self.db_type == 'oracle':
             query = "SELECT table_name FROM all_tables WHERE owner = :1;"
             params = (self.database_schema.upper(),)
+            df = await self.execute_query(query, params)
+            return df['table_name'].tolist()
+
         else:
             raise ValueError(f"Unsupported database type: {self.db_type}")
-        
-        df = await self.execute_query(query, params)
-        return df['table_name'].tolist()

@@ -41,6 +41,7 @@ interface ApiResponse<T = any> {
   explanation?: string
   source_tables?: string[]
   namespace_id?: string
+  columns?: string[]
 }
 
 // Replace with your actual backend URL

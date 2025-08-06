@@ -75,6 +75,7 @@ export default function QueryInterface() {
   const [generatedSql, setGeneratedSql] = useState<GenerateQueryResponse | null>(null)
   const [editableSql, setEditableSql] = useState<string>("")
   const [queryResults, setQueryResults] = useState<Record<string, any>[]>([])
+  const [queryColumns, setQueryColumns] = useState<string[]>([])
   const [isLoadingRecommendations, setIsLoadingRecommendations] = useState(false)
   const [isLoadingQueryGeneration, setIsLoadingQueryGeneration] = useState(false)
   const [isLoadingQueryExecution, setIsLoadingQueryExecution] = useState(false)
@@ -332,6 +333,7 @@ export default function QueryInterface() {
       const result = await executeQuery(configForExecution, editableSql)
       if (result.success && result.data) {
         setQueryResults(result.data)
+        setQueryColumns(result.columns || [])
         if (session?.user?.id && currentQueryId) {
           const logResult = await logExecutedQuery(currentQueryId, session.user.id, naturalLanguageQuery, editableSql)
           if (!logResult.success) {
@@ -382,6 +384,7 @@ export default function QueryInterface() {
   const clearAll = () => {
     setGeneratedSql(null)
     setQueryResults([])
+    setQueryColumns([])
     setNaturalLanguageQuery("")
     setError(null)
     setSelectedRecommendations([])
@@ -391,6 +394,7 @@ export default function QueryInterface() {
   const resetQueryState = () => {
     setGeneratedSql(null)
     setQueryResults([])
+    setQueryColumns([])
     setNaturalLanguageQuery("")
     setError(null)
     setSelectedRecommendations([])
@@ -674,12 +678,12 @@ export default function QueryInterface() {
             <CardDescription>Results from your executed SQL query.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {queryResults.length > 0 ? (
+            {(queryResults.length > 0 || queryColumns.length > 0) ? (
               <div className="overflow-x-auto rounded-lg border border-border/50">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/20">
-                      {Object.keys(queryResults[0]).map((key) => (
+                      {(queryResults.length > 0 ? Object.keys(queryResults[0]) : queryColumns).map((key) => (
                         <TableHead key={key}>{key}</TableHead>
                       ))}
                     </TableRow>

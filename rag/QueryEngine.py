@@ -118,7 +118,7 @@ async def generate_query_engine(
             response = await query_engine.aquery(user_query)
             
             cleaned_response_str = clean_json(response.response)
-            logging.info(f"Raw LLM response (cleaned): {cleaned_response_str}") # Added logging
+            # logging.info(f"Raw LLM response (cleaned): {cleaned_response_str}") # Added logging
             
             response_json = json.loads(cleaned_response_str)
             
