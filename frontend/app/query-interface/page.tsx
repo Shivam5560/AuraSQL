@@ -251,7 +251,7 @@ export default function QueryInterface() {
       setIsLoadingRecommendationsDelayed(true);
       timer = setTimeout(() => {
         fetchRecommendations();
-      }, 5000);
+      }, 8000);
     }
 
     return () => clearTimeout(timer);
@@ -658,7 +658,7 @@ export default function QueryInterface() {
                 {isLoadingRecommendations || isLoadingRecommendationsDelayed ? (
                   <div className="flex items-center justify-center p-4 text-muted-foreground">
                     <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                    <span>{isLoadingRecommendationsDelayed ? "Fetching recommendations in 5 seconds..." : "Loading recommendations..."}</span>
+                    <span>{isLoadingRecommendationsDelayed ? "Fetching recommendations ..." : "Loading recommendations..."}</span>
                   </div>
                 ) : recommendations.length > 0 ? (
                   <>
